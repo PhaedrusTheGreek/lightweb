@@ -2,7 +2,7 @@
 
 ## Lightweb Browser — ActivityPub Platform
 
-**Version:** 0.6 (Draft)
+**Version:** 0.7 (Draft)
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-02-17
 
@@ -18,15 +18,19 @@ To provide a simple and well-defined structure for communications which is condu
 
 ### 1.2 Problem Statement
 
-Mainstream social media platforms are centralized, opaque, and buried in buttons, menus, and configuration screens. Existing Fediverse clients remain too technical and too cluttered for general audiences. And no social platform today provides a principled, interoperable model for trust — who can see what, who can act on whose behalf, and how those permissions evolve over time.
+Mainstream social media platforms are centralized, opaque, and buried in buttons, menus, and configuration screens. And no social platform today provides a principled, interoperable model for secure non-technical use of the internet.
+
+_Sending_ data through web browsers and most apps is uncontrolled and insecure.
 
 ### 1.3 Vision
 
+To lock down browser PUT/POST capability, effectively making it read only, by designing a simple & secure social & business communications protocol.
+
 Lightweb Browser is a federated social platform built on ActivityPub, designed around three radical premises:
 
-1. **There are no buttons.** Every interaction flows through a single persistent, context-aware input bar.
-2. **Everything is allowlisted.** No action, content view, or configuration change is permitted until explicitly granted. Permissions evolve naturally over time.
-3. **Trust is a first-class object.** The platform provides a structured, interoperable model for circles of trust — between family members, colleagues, communities — that is itself built on ActivityPub and extensible by anyone.
+1. **There are no unnecessary UI input components such as buttons and choosers and boxes.** Every interaction flows through a single persistent, context-aware input bar which at any time could be replaced with a voice input or sign language or future "keyboard".
+2. **Security is Deny by Default** Internet actions or UI changes must be explicitly allowed. Permissions evolve naturally over time.
+3. **Trust is structured.** The platform provides a structured model for circles of trust — between family members, colleagues, communities — built as Lightweb extension types that federate over ActivityPub transport. Further, quality of business objects are reputable over time based on a global review standard. Positive reviews inside circle of trust carry more weight.
 
 ### 1.4 Design Philosophy
 
@@ -47,8 +51,8 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 
 **"Trust is Structured"**
 
-- Trust relationships are first-class ActivityPub objects, not platform-internal hacks
-- They are interoperable, federatable, and extensible
+- Trust relationships are structured Lightweb extension types that federate over ActivityPub transport
+- They are extensible and travel via standard AP inbox/outbox delivery
 - The same trust model that governs parent/child applies to employer/employee, community/member, etc.
 
 ### 1.5 App Name
@@ -59,12 +63,11 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 
 ## 2. Goals & Success Metrics
 
-| Goal                   | Metric                                                | Target (6 months post-launch) |
-| ---------------------- | ----------------------------------------------------- | ----------------------------- |
-| Federation reliability | % of ActivityPub interactions completing successfully | > 98%                         |
-| AI intent resolution   | % of natural language inputs correctly actioned       | > 90%                         |
-| Performance            | Feed load time (p95)                                  | < 1.5s on 4G                  |
-| Accessibility          | WCAG 2.1 AA compliance                                | 100% of core flows            |
+| Goal                 | Metric                                                | Target (6 months post-launch) |
+| -------------------- | ----------------------------------------------------- | ----------------------------- |
+| Interoperability.    | Level of interoperability with non-LW implementations | Basic Functionality           |
+| AI intent resolution | % of natural language inputs correctly actioned       | > 99%                         |
+| Accessibility        | WCAG 2.1 AA compliance                                | 100% of core flows            |
 
 ---
 
@@ -79,7 +82,7 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 - **The Casual Social User** — just wants to post and chat; finds existing social apps over-engineered
 - **The Parent** — wants granular, evolving control over what their child can see, follow, and do — without a complex parental controls dashboard
 - **The Protected Account** (child) — uses the platform naturally, with the trust system invisible; encounters graceful gates rather than confusing errors
-- **The Business User** _(post-v1)_ — employee/employer trust relationships mirror the parent/child model
+- **The Business User** _(post-v1)_ — Internet presence for standardized and secure ecommerce interactions
 
 > ⚠️ **Design implication:** ActivityPub federation, AI/LLM systems, and the Circle of Trust must be completely invisible to end users. Users experience outcomes (content visible / not visible, action permitted / request sent) never mechanisms.
 
@@ -92,9 +95,9 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 - ✅ User registration and login (SSO only — Google and Facebook)
 - ✅ Single-screen column navigator — 1 column on mobile by default, 2–3 on tablet; always user-configurable per device
 - ✅ Feed as unified inbox — all events (messages, replies, follows, trust requests) arrive as cards; no separate notifications
-- ✅ One card always in focus; persistent context-aware input bar always visible
-- ✅ Left swipe → opens new column to the right (remote feed, chat thread, AI pane)
-- ✅ Right swipe → AI mode for focused card
+- ✅ One card always in focus (default to latest); persistent context-aware input bar always visible
+- ✅ Left swipe → opens new column to the right (remote feed of swiped card, or chat thread, etc)
+- ✅ Right swipe → AI mode for swiped card (configuration, custom interactions)
 - ✅ **Chat-first messaging** — 1:1 and group chat, WhatsApp-equivalent, E2EE via MLS
 - ✅ `ChatMessage` object type — dedicated type, always encrypted, separate from `Note`
 - ✅ Group chat with host server model — creator's server is MLS Delivery Service
@@ -107,12 +110,12 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 - ✅ Circle of Trust — account control model (open and controlled accounts)
 - ✅ TrustRequest / TrustGrant object types — permission escalation via ActivityPub
 - ✅ Allowlist permission model for all actions and config objects
-- ✅ LightwebObject base type with typed extension system (internal v1)
+- ✅ LightwebObject base type with typed extension system
 - ✅ Encryption defined per extension manifest — `ChatMessage`: required, `Note`: none
 - ✅ Review object type — 👍 / 👎 + blurb, applicable per object type
 - ✅ MLS (RFC 9420) E2EE for ChatMessage and TrustRequest objects
 - ✅ Hybrid key storage — client-side primary, encrypted server backup
-- ✅ Managed hosting — Lightweb Cloud, dedicated container per user
+- ✅ Managed hosting — Lightweb Cloud, single-user-per-server (dedicated container per user, domain = identity)
 
 ### 4.2 Out of Scope (v1.0)
 
@@ -124,8 +127,7 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 - ❌ Monetization / creator tools
 - ❌ Admin moderation dashboard (manual DB tooling only at launch)
 - ❌ Comments (replaced by structured Review objects)
-- ❌ Public extension namespace publication — internal v1 only
-- ❌ Business / employer trust relationships (post-v1)
+- ❌ ECommerce tooling
 
 ---
 
@@ -134,88 +136,145 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 ### 5.1 High-Level Overview
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                         CLIENT LAYER                             │
-│                                                                  │
-│  iOS (React Native)   Android (React Native)   Web (Next.js)     │
-│        └─────────────── Solito shared UI ──────────┘            │
-│                              │                                   │
-│         ┌────────────────────┤                                   │
-│         │  Embedded Mobile   │  ← Web renders same RN component  │
-│         │  UI Component      │    inside a Next.js shell         │
-│         └────────────────────┘                                   │
-└──────────────────────────────┬───────────────────────────────────┘
-                               │ HTTPS / REST + WebSockets
-┌──────────────────────────────▼───────────────────────────────────┐
-│                      API GATEWAY (Next.js)                        │
-│   - Auth (JWT / OAuth2 — Google, Facebook)                        │
-│   - REST API for all clients                                      │
-│   - React Server Components (web shell)                           │
-│   - Rate limiting, input validation                               │
-│   - Routes natural language inputs → LLM Service                 │
-└──────────┬───────────────────────────────────────┬───────────────┘
-           │                                       │
-┌──────────▼──────────┐  ┌───────────────┐  ┌─────▼──────────────┐
-│  ActivityPub Service │  │  LLM Service  │  │   Media Service    │
-│  (Fastify / Node.js) │  │  (Fastify)    │  │   (Node.js)        │
-│                      │  │               │  │                    │
-│  - Inbox / Outbox    │  │  - Receives   │  │  - Image upload    │
-│  - Actor management  │  │    input +    │  │  - Resize / CDN    │
-│  - WebFinger         │  │    context    │  │  - S3 storage      │
-│  - Federation        │  │  - Reads /    │  └────────────────────┘
-│  - HTTP Signatures   │  │    writes     │
-└──────────┬───────────┘  │    Config     │
-           │              │    Registry   │
-           │              │  - Calls LLM  │
-           │              │    provider   │
-           │              │    (Claude)   │
-           │              └───────┬───────┘
-           │                      │
-           │              ┌───────▼────────────┐
-           │              │  Config Registry   │
-           │              │  (JSON file,       │
-           │              │   always in memory)│
-           │              └────────────────────┘
-           │
-┌──────────▼──────────────────────────────────────────────────────┐
-│                          DATA LAYER                              │
-│                                                                  │
-│   PostgreSQL (content only)        Redis (cache + pub/sub)       │
-│   - Users, posts, follows          - Feed caching               │
-│   - AP objects / activities        - Session store              │
-│   - Media metadata                 - Real-time DM delivery      │
-│                                                                  │
-│   ⚠️  No configuration in PostgreSQL. All config is in the     │
-│       JSON Config Registry (see §8).                            │
-└─────────────────────────────────────────────────────────────────┘
+                    ┌─ PER-USER CONTAINER ──────────────────────────────┐
+                    │                                                   │
+┌────────────────┐  │  ┌────────────────────────────────────────────┐   │
+│  CLIENT LAYER  │  │  │         NEXT.JS  (single process)          │   │
+│                │  │  │                                            │   │
+│ iOS (RN/Expo) ─┼──┼─▶│  API Routes                                │   │
+│ Android (RN)  ─┼──┼─▶│  - REST API for all clients                │   │
+│ Web (browser) ─┼──┼─▶│  - Auth (JWT / OAuth2 — Google, Facebook)  │   │
+│                │  │  │  - Rate limiting, input validation         │   │
+│ ── Solito ──   │  │  │                                            │   │
+│ shared UI +    │  │  │  ActivityPub Engine                        │   │
+│ react-native-  │  │  │  - Inbox / Outbox                          │   │
+│ web            │  │  │  - Actor management & WebFinger            │   │
+│                │  │  │  - HTTP Signatures                         │   │
+└────────────────┘  │  │  - Federation send/receive                 │   │
+                    │  │                                            │   │
+  HTTPS / REST +    │  │  LLM Client                                │   │
+  WebSockets        │  │  - Calls external LLM API (Claude)         │   │
+                    │  │  - Reads / writes Config Registry          │   │
+                    │  │  - Dispatches AP actions                   │   │
+                    │  │                                            │   │
+                    │  │  Web Shell (SSR)                           │   │
+                    │  │  - React Server Components                 │   │
+                    │  │  - Embeds shared RN UI via react-native-web│   │
+                    │  │  - Minimal client JS (swipe, WS, focus)    │   │
+                    │  └─────────────┬──────────────────────────────┘   │
+                    │                │                                  │
+                    │  ┌─────────────▼──────────┐                       │
+                    │  │  Redis (local sidecar) │  ~5 MB idle           │
+                    │  │  - Feed caching        │                       │
+                    │  │  - Session store       │                       │
+                    │  │  - Real-time pub/sub   │                       │
+                    │  └────────────────────────┘                       │
+                    │                                                   │
+                    │  Config Registry (JSON file, always in memory)    │
+                    └──────────────────────────┬────────────────────────┘
+                                               │
+                    ┌─ SHARED INFRASTRUCTURE ───┼───────────────────────┐
+                    │                           │                       │
+                    │  ┌────────────────────────▼───────────────────┐   │
+                    │  │  Managed PostgreSQL (separate DB per user) │   │
+                    │  │  - Users, posts, follows                   │   │
+                    │  │  - AP objects / activities                 │   │
+                    │  │  - Media metadata                          │   │
+                    │  │  - Connection pooling by provider          │   │
+                    │  │                                            │   │
+                    │  │  ⚠️  No configuration in PostgreSQL.       │   │
+                    │  │      All config is in the                  │   │
+                    │  │      JSON Config Registry (see §8).        │   │
+                    │  └────────────────────────────────────────────┘   │
+                    │                                                   │
+                    │  ┌────────────────────┐  ┌─────────────────────┐  │
+                    │  │  S3/R2 Storage     │  │  External LLM API   │  │
+                    │  │  - Media uploads   │  │  - Claude (default) │  │
+                    │  │  - CDN delivery    │  │  - Swappable via    │  │
+                    │  └────────────────────┘  │    config registry  │  │
+                    │                          └─────────────────────┘  │
+                    └───────────────────────────────────────────────────┘
 ```
 
 ### 5.2 Technology Choices
 
-| Layer                | Technology                             | Rationale                                             |
-| -------------------- | -------------------------------------- | ----------------------------------------------------- |
-| Mobile frontend      | **React Native** (via Expo)            | Native components on iOS & Android                    |
-| Web frontend         | **Next.js 14+** (App Router)           | Embeds shared RN UI; RSC for web shell                |
-| Code sharing         | **Solito**                             | Unified navigation + components across RN and Next.js |
-| ActivityPub backend  | **Fastify** (Node.js)                  | High-performance; built-in schema validation          |
-| LLM service          | **Fastify** (Node.js)                  | Isolated service; clean provider swap interface       |
-| Language             | **TypeScript** throughout              | Monorepo type safety end to end                       |
-| Database             | **PostgreSQL**                         | Content only; JSONB for ActivityPub objects           |
-| Cache / realtime     | **Redis**                              | Feed caching, pub/sub for DMs                         |
-| Object storage       | **S3-compatible** (e.g. Cloudflare R2) | Media hosting                                         |
-| Monorepo tooling     | **Turborepo**                          | Shared packages, incremental builds                   |
-| Initial LLM provider | **Claude (Anthropic)**                 | Default; swappable via config registry                |
+| Layer                   | Technology                              | Rationale                                                        |
+| ----------------------- | --------------------------------------- | ---------------------------------------------------------------- |
+| Mobile frontend         | **React Native** (via Expo)             | Native components on iOS & Android                               |
+| Unified server          | **Next.js 14+** (App Router)            | Single process: API routes, AP engine, LLM client, SSR web shell |
+| Code sharing            | **Solito** + **react-native-web**       | Shared UI components + navigation across RN and Next.js          |
+| Language                | **TypeScript** throughout               | Monorepo type safety end to end                                  |
+| Database                | **Managed PostgreSQL** (e.g. Supabase)  | Separate DB per user; connection pooling by provider             |
+| Cache / realtime        | **Redis** (local sidecar per container) | Feed caching, sessions, pub/sub for real-time chat               |
+| Object storage          | **S3-compatible** (e.g. Cloudflare R2)  | Shared media hosting across all users                            |
+| Monorepo tooling        | **Turborepo**                           | Shared packages, incremental builds                              |
+| Initial LLM provider    | **Claude (Anthropic)**                  | External API calls; swappable via config registry                |
+| Container orchestration | **Kubernetes** (GKE / GCP)              | One container per user; cluster-level scaling                    |
 
 ### 5.3 Web Client Strategy
 
-The web client is a **Next.js application** with two roles:
+The web client is a **Next.js application** that serves two roles in one process:
 
-1. **Shell:** Next.js handles routing, auth, SSR metadata, and the outer browser chrome
-2. **Embedded UI:** The exact same React Native UI component used on mobile is embedded inside the shell via `react-native-web`
+1. **Shell:** Next.js handles routing, auth, SSR metadata, and the outer browser chrome via React Server Components
+2. **Embedded UI:** The exact same React Native UI component used on mobile is embedded inside the shell via `react-native-web` and Solito
 
 This means the mobile UI and web UI share **identical code.** The web shell adds browser-native affordances (URL routing, tab title, keyboard shortcut hints). The core feed, input bar, and swipe interactions are the same on all platforms.
 
+**Minimal client-side JavaScript.** The web shell is primarily server-side rendered. Client-side JS is limited to interactive features that require it:
+
+- Swipe gesture handling (touch/pointer events)
+- WebSocket connection for real-time chat delivery
+- Card focus tracking and input bar state
+- Animation transitions (~300ms ease-in-out)
+
+This is a thin interactive layer, not a full client-side application. The same React Native components render on web — the client JS hydrates interactivity, not the entire UI.
+
 > 📌 The web experience intentionally looks and feels like a mobile app running in a browser — this is by design, not a limitation.
+
+### 5.4 Single-User-Per-Server Model
+
+Every Lightweb user gets a **dedicated container** — one user, one server, one domain. The user's domain _is_ their identity (e.g. `@alice@alice.lightweb.cloud`).
+
+**Why single-user-per-server:**
+
+- **Security isolation.** A compromise of one container cannot access another user's data, keys, or configuration
+- **Resource isolation.** One user's traffic spike doesn't affect another user
+- **Simplicity.** No multi-tenancy complexity — the Config Registry, Redis, and process state all belong to exactly one user
+- **Identity model.** Domain = identity aligns naturally with ActivityPub's actor model and WebFinger discovery
+
+**WebFinger** (RFC 7033) is still required for federation interop — other AP servers expect to resolve `@user@domain` via `/.well-known/webfinger`. In a single-user-per-server model this is trivially implemented (always returns the one user) but must exist for other servers to discover and follow this actor.
+
+### 5.5 Consolidated Single-Process Architecture
+
+All server-side functionality runs in a **single Next.js process** per container. There are no separate microservices.
+
+| Concern            | Implementation                                                  |
+| ------------------ | --------------------------------------------------------------- |
+| API gateway        | Next.js API routes (`/api/*`)                                   |
+| ActivityPub engine | Next.js API routes (`/users/*/inbox`, `/users/*/outbox`, etc.)  |
+| WebFinger          | Next.js API route (`/.well-known/webfinger`)                    |
+| LLM client         | HTTP client calls to external Claude/OpenAI API from API routes |
+| Web shell (SSR)    | React Server Components + hydrated interactive layer            |
+| WebSocket server   | Attached to Next.js HTTP server for real-time chat delivery     |
+| Config Registry    | JSON file loaded into process memory at startup                 |
+
+**Why not microservices:** With one user per container, there is no concurrency benefit from splitting services. A single process eliminates inter-process communication overhead, simplifies deployment, and reduces memory footprint (~100–150 MB total per container vs ~300+ MB for three separate Node.js processes).
+
+### 5.6 Infrastructure Split — Per-Container vs Shared
+
+Each user container runs locally:
+
+- **Next.js process** — single Node.js process (~100–150 MB)
+- **Redis sidecar** — local instance (~5 MB idle, grows with cached feed size)
+- **Config Registry** — JSON file on local disk, held in process memory
+
+Shared infrastructure (managed, external to containers):
+
+- **Managed PostgreSQL** — separate database per user, hosted on a cloud provider (e.g. Supabase). Connection pooling handled by the provider. Each container connects to its own database via connection string
+- **S3/R2 object storage** — shared media storage across all users. Media uploads go through the user's container, stored in a shared bucket with user-prefixed keys
+- **External LLM API** — Claude (default) or other provider. HTTP calls from within Next.js API routes. No local LLM process
+
+**Container capacity estimate:** On a 3-node GCP cluster (e2-medium, 4 GB RAM each, ~$75/month total), approximately 65–80 idle containers fit comfortably. Active containers with traffic consume more, so real-world capacity depends on usage patterns.
 
 ---
 
@@ -384,9 +443,9 @@ HOME FEED — unified inbox (newest at bottom)
 
 ---
 
-### 7.4 LLM Service
+### 7.4 LLM Client
 
-The LLM Service is **server-side only.** The client never calls an LLM provider directly.
+The LLM client is **server-side only** — an HTTP client within the Next.js process that calls an external LLM API. The client never calls an LLM provider directly.
 
 #### Request Flow
 
@@ -394,15 +453,15 @@ The LLM Service is **server-side only.** The client never calls an LLM provider 
 Client sends: { userInput, focusedCardId, paneState, conversationHistory }
        │
        ▼
-API Gateway validates + enriches with full card ActivityPub object
+Next.js API route validates + enriches with full card ActivityPub object
        │
        ▼
-LLM Service:
-  1. Load Config Registry (already in memory)
+LLM Client:
+  1. Read Config Registry (already in process memory)
   2. Build system prompt: server config + card context + available actions
-  3. Call LLM provider (Claude by default)
+  3. Call external LLM API (Claude by default)
   4. Parse response → { replyText, actions[] }
-  5. Execute actions[] via ActivityPub Service or Config Registry writer
+  5. Execute actions[] via AP engine or Config Registry writer
   6. Return replyText to client
 ```
 
@@ -420,9 +479,9 @@ Switching LLM providers requires only a change to `config/registry.json` and a s
 
 #### LLM Permissions
 
-| The LLM **can**                                                     | The LLM **cannot**                    |
+| The LLM client **can**                                              | The LLM client **cannot**             |
 | ------------------------------------------------------------------- | ------------------------------------- |
-| Read entire Config Registry                                         | Read or write PostgreSQL directly     |
+| Read entire Config Registry (in process memory)                     | Read or write PostgreSQL directly     |
 | Write scoped Config Registry keys                                   | Access another user's data            |
 | Dispatch ActivityPub activities on behalf of the authenticated user | Make arbitrary outbound network calls |
 | Return natural language responses                                   | Modify server infrastructure          |
@@ -462,12 +521,12 @@ Chat is a **first-class, primary feature** of Lightweb Browser v1 — equivalent
 
 #### Conversation Model
 
-A conversation is an ActivityPub `Collection` — a persistent ordered set of `ChatMessage` objects between a fixed set of actors. It maps 1:1 to an MLS group.
+A conversation is an ActivityPub `OrderedCollection` — a persistent ordered set of `ChatMessage` objects between a fixed set of actors. It maps 1:1 to an MLS group.
 
 ```
-Conversation (Collection)
+Conversation (OrderedCollection)
   ├── id: https://alice.lightweb.cloud/conversations/xyz
-  ├── type: "Conversation"          // LightwebObject extension
+  ├── type: "OrderedCollection"     // native AP type with Lightweb namespace properties
   ├── members: [alice, bob]         // or [alice, bob, carol, ...]
   ├── hostServer: alice.lightweb.cloud   // MLS Delivery Service
   └── messages: [ChatMessage, ...]  // ordered, oldest first
@@ -701,28 +760,27 @@ type LightwebObjectType =
   | "TrustGrant" // permission approval (always encrypted)
   | "Review" // 👍/👎 + blurb
   | "Product" // any purchasable thing — physical, digital, or service
-  | "MediaItem" // any media — episode, movie, track, video
-  | "LWCollection"; // groups any objects at arbitrary depth (extends AP OrderedCollection)
+  | "MediaItem"; // any media — episode, movie, track, video
 ```
 
-**That's it.** Eight types. Everything else — menus, TV shows, podcasts, storefronts, playlists — is expressed as `LWCollection` hierarchies of `Product` and `MediaItem` objects with appropriate `lwTags` and `lwMetadata`.
+**That's it.** Seven types. Everything else — menus, TV shows, podcasts, storefronts, playlists — is expressed as native ActivityPub `OrderedCollection` hierarchies of `Product` and `MediaItem` objects with Lightweb namespace properties (`lwTags`, `lwMetadata`). Collections are not a custom type — they use AP's built-in `OrderedCollection`, which any AP server already understands. Lightweb-specific rendering is driven by `lwMetadata.displayHint`.
 
-### 9.3 The LWCollection — Universal Container
+### 9.3 Collections — Native AP OrderedCollection with Lightweb Properties
 
-`LWCollection` extends ActivityPub's `OrderedCollection` with Lightweb metadata. It can contain any `LightwebObject` including other `LWCollection`s, enabling **arbitrary-depth hierarchies** with no schema changes.
+Collections use ActivityPub's native `OrderedCollection` type directly, extended with Lightweb namespace properties (`lwMetadata`, `lwTags`). This means any AP server recognizes them as valid collections — Lightweb-specific rendering is layered on top via `lwMetadata.displayHint`. Collections can nest arbitrarily (collections of collections), enabling menus, TV show seasons, playlists, etc. with no custom types.
 
 ```jsonc
-// A restaurant menu
+// A restaurant menu — native AP OrderedCollection
 {
   "@context": ["https://www.w3.org/ns/activitystreams", "https://lightwebbrowser.org/ns"],
-  "type": "LWCollection",
+  "type": "OrderedCollection",
   "id": "https://restaurant.lightweb.cloud/objects/menu-2026",
   "name": "Spring Menu",
   "lwMetadata": { "displayHint": "menu", "currency": "USD" },
   "lwTags": ["restaurant", "italian"],
   "orderedItems": [
     {
-      "type": "LWCollection",           // category
+      "type": "OrderedCollection",       // nested collection = category
       "name": "Starters",
       "lwTags": ["starters"],
       "orderedItems": [
@@ -741,13 +799,13 @@ type LightwebObjectType =
 
 // A TV show — identical structure, different tags
 {
-  "type": "LWCollection",
+  "type": "OrderedCollection",
   "name": "The Last of Us",
   "lwMetadata": { "displayHint": "tvshow", "studio": "HBO" },
   "lwTags": ["drama", "sci-fi", "mature"],
   "orderedItems": [
     {
-      "type": "LWCollection",           // season
+      "type": "OrderedCollection",       // season
       "name": "Season 1",
       "lwTags": ["season"],
       "orderedItems": [
@@ -764,7 +822,7 @@ type LightwebObjectType =
 }
 ```
 
-The `lwMetadata.displayHint` field tells the client **how to render** the collection card — as a menu, a storefront, a show, a playlist, etc. The data structure is identical; only the presentation hint differs.
+The `lwMetadata.displayHint` field tells the client **how to render** the collection card — as a menu, a storefront, a show, a playlist, etc. The data structure is identical; only the presentation hint differs. Non-Lightweb servers see valid `OrderedCollection` objects and can display them as plain lists.
 
 ### 9.4 The Product Type
 
@@ -793,7 +851,7 @@ The `lwMetadata.displayHint` field tells the client **how to render** the collec
 
 ### 9.5 The MediaItem Type
 
-`MediaItem` covers any media — a podcast episode, TV episode, movie, music track, or short video. The distinction between a "podcast" and a "TV show" is expressed via `lwTags` and parent `LWCollection`, not by type.
+`MediaItem` covers any media — a podcast episode, TV episode, movie, music track, or short video. The distinction between a "podcast" and a "TV show" is expressed via `lwTags` and parent `OrderedCollection`, not by type.
 
 ```jsonc
 {
@@ -814,16 +872,16 @@ The `lwMetadata.displayHint` field tells the client **how to render** the collec
 
 ### 9.6 Type → Action Vocabulary
 
-| Object type    | Available actions                    | Reviewable                | Encrypted |
-| -------------- | ------------------------------------ | ------------------------- | --------- |
-| `Note`         | Reply, Like, Boost, Delete           | ✅ Yes                    | ❌ No     |
-| `ChatMessage`  | Reply, Delete                        | ❌ No                     | ✅ Always |
-| `TrustRequest` | Approve, Escalate                    | ❌ No                     | ✅ Always |
-| `TrustGrant`   | Revoke                               | ❌ No                     | ✅ Always |
-| `Review`       | Like, Boost, Delete                  | ❌ No                     | ❌ No     |
-| `Product`      | Purchase, Save, Share, Review, React | ✅ Yes                    | ❌ No     |
-| `MediaItem`    | Play, Save, Share, Review, React     | ✅ Yes                    | ❌ No     |
-| `LWCollection` | Browse, Save, Share, React           | 🟡 Inherits from children | ❌ No     |
+| Object type         | Available actions                    | Reviewable                | Encrypted |
+| ------------------- | ------------------------------------ | ------------------------- | --------- |
+| `Note`              | Reply, Like, Boost, Delete           | ✅ Yes                    | ❌ No     |
+| `ChatMessage`       | Reply, Delete                        | ❌ No                     | ✅ Always |
+| `TrustRequest`      | Approve, Escalate                    | ❌ No                     | ✅ Always |
+| `TrustGrant`        | Revoke                               | ❌ No                     | ✅ Always |
+| `Review`            | Like, Boost, Delete                  | ❌ No                     | ❌ No     |
+| `Product`           | Purchase, Save, Share, Review, React | ✅ Yes                    | ❌ No     |
+| `MediaItem`         | Play, Save, Share, Review, React     | ✅ Yes                    | ❌ No     |
+| `OrderedCollection` | Browse, Save, Share, React           | 🟡 Inherits from children | ❌ No     |
 
 ### 9.7 Tags — Filtering and Discovery
 
@@ -832,7 +890,7 @@ The `lwMetadata.displayHint` field tells the client **how to render** the collec
 ```
 Product tags:    "vegan", "gluten-free", "handmade", "service", "digital"
 MediaItem tags:  "podcast", "episode", "movie", "4K", "mature", "documentary"
-Collection tags: "restaurant", "menu", "tvshow", "season", "playlist", "storefront"
+OrderedCollection tags: "restaurant", "menu", "tvshow", "season", "playlist", "storefront"
 Note tags:       (user-defined, used for search and muting)
 ```
 
@@ -910,7 +968,7 @@ Extensions are published as JSON-LD context documents at `https://lightwebbrowse
 **Publishing roadmap:**
 
 - **v1:** Internal — namespace not publicly resolvable; spec documented internally
-- **v2:** Publish `TrustRequest`, `TrustGrant`, `LWCollection` — highest interoperability value
+- **v2:** Publish `TrustRequest`, `TrustGrant` specs — highest interoperability value
 - **v3+:** Publish `Product`, `MediaItem`, full ecommerce vocabulary
 
 ### 9.10 The Review Object
@@ -1043,7 +1101,7 @@ Encryption is defined **per object type in the extension manifest**, not as a bl
 | `TrustRequest` / `TrustGrant`    | ✅ Required (MLS)        | `encryption: "required"` |
 | `Note` (public post)             | ❌ None                  | `encryption: "none"`     |
 | `Review`                         | ❌ None                  | `encryption: "none"`     |
-| `Movie` / `MenuItem` / `Product` | ❌ None (public objects) | `encryption: "none"`     |
+| `Product` / `MediaItem`          | ❌ None (public objects) | `encryption: "none"`     |
 | HTTP Signatures (all federation) | ✅ Ed25519 signing       | Transport layer          |
 | Config Registry                  | ❌ Server-side only      | Never on client          |
 
@@ -1135,9 +1193,9 @@ The Config Registry is the single source of truth for all system behaviour. It i
 
 | Actor                    | Read               | Write                                                 |
 | ------------------------ | ------------------ | ----------------------------------------------------- |
-| LLM Service              | ✅ Full            | ✅ Scoped (user-affecting keys only, not server-wide) |
-| API Gateway              | ✅ Full            | ❌                                                    |
-| ActivityPub Service      | ✅ Federation keys | ❌                                                    |
+| LLM client (in-process)  | ✅ Full            | ✅ Scoped (user-affecting keys only, not server-wide) |
+| API routes (in-process)  | ✅ Full            | ❌                                                    |
+| AP engine (in-process)   | ✅ Federation keys | ❌                                                    |
 | Client apps              | ❌ Never           | ❌ Never                                              |
 | Server operator (manual) | ✅ Full            | ✅ Full (file edit + restart)                         |
 
@@ -1164,12 +1222,12 @@ The Config Registry is the single source of truth for all system behaviour. It i
 /
 ├── apps/
 │   ├── mobile/           # Expo React Native (iOS + Android)
-│   ├── web/              # Next.js web shell (embeds shared mobile UI)
-│   ├── api/              # Next.js API gateway
-│   ├── federation/       # Fastify ActivityPub service
-│   └── llm/              # Fastify LLM service
+│   └── server/           # Next.js — unified server (API, AP engine, LLM client, web shell)
+│       ├── app/           # Next.js App Router (pages, layouts, RSC)
+│       ├── api/           # API routes (REST, AP inbox/outbox, WebFinger)
+│       └── ws/            # WebSocket server attachment for real-time chat
 ├── packages/
-│   ├── ui/               # Shared React Native + web UI components
+│   ├── ui/               # Shared React Native + web UI components (via Solito)
 │   │   ├── Feed/
 │   │   ├── Card/
 │   │   ├── InputBar/
@@ -1178,13 +1236,15 @@ The Config Registry is the single source of truth for all system behaviour. It i
 │   ├── ap-core/          # ActivityPub builders & validators
 │   ├── lw-objects/       # LightwebObject base type + extension manifest loader
 │   │   ├── base/         # LightwebObject, TrustRequest, TrustGrant, Review
-│   │   └── extensions/   # Internal extension manifests (Movie, MenuItem, etc.)
+│   │   └── extensions/   # Internal extension manifests (Product, MediaItem, etc.)
+│   ├── llm-client/       # LLM provider abstraction (Claude, OpenAI, Gemini)
 │   ├── trust/            # Circle of Trust — account model, permission checks
 │   ├── crypto/           # MLS client, Ed25519/X25519 keypair mgmt, key backup
 │   ├── config-registry/  # Registry loader, reader, writer, TypeScript types
 │   └── tsconfig/         # Shared TS config
 ├── config/
 │   └── registry.json     # THE config registry (secrets via env vars only)
+├── Dockerfile            # Single container: Next.js + Redis sidecar
 ├── turbo.json
 ├── package.json
 └── PRD.md
@@ -1194,61 +1254,63 @@ The Config Registry is the single source of truth for all system behaviour. It i
 
 ## 14. Open Questions
 
-| #   | Question                        | Owner              | Status                                                                                                                   |
-| --- | ------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| 1   | App name                        | Product            | 🟢 **Lightweb Browser**                                                                                                  |
-| 2   | SSO providers                   | Product            | 🟢 Google + Facebook (+ Apple likely required for App Store)                                                             |
-| 3   | Notifications                   | Product            | 🟢 Replaced by feed cards — no separate notification system                                                              |
-| 4   | Account model                   | Product            | 🟢 Open or Controlled; no intermediate types                                                                             |
-| 5   | Controller LLM scope            | Product            | 🟢 Config-write only; cannot execute actions on controlled account                                                       |
-| 6   | Allowlist philosophy            | Product            | 🟢 Confirmed — allowlist always, never deny                                                                              |
-| 7   | LLM write scope                 | Product + Security | 🟢 User LLM: own config objects only. Server-wide: operator only                                                         |
-| 8   | TrustRequest scopes             | Product            | 🟢 Three scopes: `once`, `content-only`, `persistent`                                                                    |
-| 9   | Multiple controllers            | Product            | 🟢 Any one controller sufficient; first to respond wins                                                                  |
-| 10  | Hosting model                   | Product            | 🟢 Lightweb Cloud — dedicated container per user                                                                         |
-| 11  | Content moderation              | Product            | 🟢 None at v1. No comments. Review objects (👍/👎 + blurb) replace them                                                  |
-| 12  | E2EE                            | Engineering        | 🟢 MLS (RFC 9420). Hybrid key storage                                                                                    |
-| 13  | Rating format                   | Product            | 🟢 👍 / 👎 + optional blurb                                                                                              |
-| 14  | Extension namespace             | Product            | 🟢 v1 internal; v2 publish TrustRequest/TrustGrant; v3+ domain types                                                     |
-| 15  | Chat thread layout              | Product            | 🟢 Full screen on 1-col mobile; right column on 2+ col tablet/web                                                        |
-| 16  | Group host migration            | Engineering        | 🟢 Automatic — oldest remaining member's server via MLS commit                                                           |
-| 17  | Column counts                   | Product            | 🟢 Mobile default 1, tablet 2–3; always user-configurable per device                                                     |
-| 18  | Encryption per type             | Engineering        | 🟢 Defined in extension manifest (`encryption: "required"/"optional"/"none"`)                                            |
-| 19  | App store strategy              | Product            | 🟢 Single app — "Lightweb Browser" on iOS and Android. Server personalisation happens at first launch, not in the binary |
-| 20  | AI chat history                 | Product            | 🟢 Not stored — ephemeral per session                                                                                    |
-| 21  | LLM API key                     | Engineering        | 🟢 Operator only at v1; user-owned LLM is post-v1                                                                        |
-| 22  | Remote feed connection          | Engineering        | 🟢 Background polling (default 60s, configurable) + on-demand WebSocket on left-swipe                                    |
-| 23  | Config registry tracking        | Engineering        | 🟢 Git-tracked — secrets via env vars only                                                                               |
-| 24  | Key revocation                  | Engineering        | 🟢 MLS epoch advancement — any group member triggers commit; old-epoch messages inaccessible after rotation              |
-| 25  | Reviewable types at v1          | Product            | 🟢 Note, Product, MediaItem                                                                                              |
-| 26  | Container orchestration         | Engineering        | 🟢 Kubernetes                                                                                                            |
-| 27  | Read receipts                   | Product            | 🟢 On by default. Post read receipt only on left-swipe connect. Chat on delivery/view                                    |
-| 29  | Object types                    | Product            | 🟢 8 core types: Note, ChatMessage, TrustRequest, TrustGrant, Review, Product, MediaItem, LWCollection                   |
-| 30  | Collection implementation       | Engineering        | 🟢 Extends AP `OrderedCollection` with `lwMetadata` and `lwTags`                                                         |
-| 31  | Background polling default      | Product            | 🟢 60s, user-configurable in registry                                                                                    |
-| 32  | Services as type                | Product            | 🟢 Services are Products with `lwTags: ["service"]` — no separate type                                                   |
-| 33  | Apple Sign In                   | Legal + Eng        | 🟡 Likely required for App Store compliance — confirm before submission                                                  |
-| 34  | Hosting model detail            | Engineering        | 🟢 Kubernetes on Lightweb Cloud; dedicated container per user                                                            |
-| 35  | Extension namespace publication | Product            | 🟢 v1 internal spec; v2 publish TrustRequest/TrustGrant/LWCollection; v3+ Product/MediaItem                              |
+| #   | Question                        | Owner              | Status                                                                                                                                  |
+| --- | ------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | App name                        | Product            | 🟢 **Lightweb Browser**                                                                                                                 |
+| 2   | SSO providers                   | Product            | 🟢 Google + Facebook (+ Apple likely required for App Store)                                                                            |
+| 3   | Notifications                   | Product            | 🟢 Replaced by feed cards — no separate notification system                                                                             |
+| 4   | Account model                   | Product            | 🟢 Open or Controlled; no intermediate types                                                                                            |
+| 5   | Controller LLM scope            | Product            | 🟢 Config-write only; cannot execute actions on controlled account                                                                      |
+| 6   | Allowlist philosophy            | Product            | 🟢 Confirmed — allowlist always, never deny                                                                                             |
+| 7   | LLM write scope                 | Product + Security | 🟢 User LLM: own config objects only. Server-wide: operator only                                                                        |
+| 8   | TrustRequest scopes             | Product            | 🟢 Three scopes: `once`, `content-only`, `persistent`                                                                                   |
+| 9   | Multiple controllers            | Product            | 🟢 Any one controller sufficient; first to respond wins                                                                                 |
+| 10  | Hosting model                   | Product            | 🟢 Single-user-per-server — dedicated container per user, domain = identity                                                             |
+| 11  | Content moderation              | Product            | 🟢 None at v1. No comments. Review objects (👍/👎 + blurb) replace them                                                                 |
+| 12  | E2EE                            | Engineering        | 🟢 MLS (RFC 9420). Hybrid key storage                                                                                                   |
+| 13  | Rating format                   | Product            | 🟢 👍 / 👎 + optional blurb                                                                                                             |
+| 14  | Extension namespace             | Product            | 🟢 v1 internal; v2 publish TrustRequest/TrustGrant; v3+ domain types                                                                    |
+| 15  | Chat thread layout              | Product            | 🟢 Full screen on 1-col mobile; right column on 2+ col tablet/web                                                                       |
+| 16  | Group host migration            | Engineering        | 🟢 Automatic — oldest remaining member's server via MLS commit                                                                          |
+| 17  | Column counts                   | Product            | 🟢 Mobile default 1, tablet 2–3; always user-configurable per device                                                                    |
+| 18  | Encryption per type             | Engineering        | 🟢 Defined in extension manifest (`encryption: "required"/"optional"/"none"`)                                                           |
+| 19  | App store strategy              | Product            | 🟢 Single app — "Lightweb Browser" on iOS and Android. Server personalisation happens at first launch, not in the binary                |
+| 20  | AI chat history                 | Product            | 🟢 Not stored — ephemeral per session                                                                                                   |
+| 21  | LLM API key                     | Engineering        | 🟢 Operator only at v1; user-owned LLM is post-v1                                                                                       |
+| 22  | Remote feed connection          | Engineering        | 🟢 Background polling (default 60s, configurable) + on-demand WebSocket on left-swipe                                                   |
+| 23  | Config registry tracking        | Engineering        | 🟢 Git-tracked — secrets via env vars only                                                                                              |
+| 24  | Key revocation                  | Engineering        | 🟢 MLS epoch advancement — any group member triggers commit; old-epoch messages inaccessible after rotation                             |
+| 25  | Reviewable types at v1          | Product            | 🟢 Note, Product, MediaItem                                                                                                             |
+| 26  | Container orchestration         | Engineering        | 🟢 Kubernetes                                                                                                                           |
+| 27  | Read receipts                   | Product            | 🟢 On by default. Post read receipt only on left-swipe connect. Chat on delivery/view                                                   |
+| 29  | Object types                    | Product            | 🟢 7 core types: Note, ChatMessage, TrustRequest, TrustGrant, Review, Product, MediaItem. Collections use native AP `OrderedCollection` |
+| 30  | Collection implementation       | Engineering        | 🟢 Native AP `OrderedCollection` with Lightweb namespace properties (`lwMetadata`, `lwTags`)                                            |
+| 31  | Background polling default      | Product            | 🟢 60s, user-configurable in registry                                                                                                   |
+| 32  | Services as type                | Product            | 🟢 Services are Products with `lwTags: ["service"]` — no separate type                                                                  |
+| 33  | Apple Sign In                   | Legal + Eng        | 🟡 Likely required for App Store compliance — confirm before submission                                                                 |
+| 34  | Hosting model detail            | Engineering        | 🟢 Single Next.js process + local Redis sidecar per container; managed PG (separate DB per user); shared S3/R2 and external LLM API     |
+| 35  | Extension namespace publication | Product            | 🟢 v1 internal spec; v2 publish TrustRequest/TrustGrant; v3+ Product/MediaItem                                                          |
+| 36  | Server architecture             | Engineering        | 🟢 Consolidated single Next.js process — no separate microservices. AP engine, LLM client, API, and web shell in one process            |
+| 37  | Database hosting                | Engineering        | 🟢 Managed PostgreSQL (e.g. Supabase) — separate database per user, connection pooling by provider                                      |
+| 38  | UI code sharing                 | Engineering        | 🟢 Solito + react-native-web — single shared UI across iOS, Android, and web. Minimal client JS for interactivity                       |
 
 ---
 
 ## 15. Roadmap
 
-| Phase                                      | Timeline    | Deliverables                                                                           |
-| ------------------------------------------ | ----------- | -------------------------------------------------------------------------------------- |
-| **Phase 0 — Foundation**                   | Weeks 1–3   | Monorepo, DB schema, Config Registry, WebFinger + Actor endpoints                      |
-| **Phase 1 — Core Federation**              | Weeks 4–8   | Inbox/outbox, Follow/Accept, HTTP Signatures, `Note` and `ChatMessage` types           |
-| **Phase 2 — Column Navigator + Input Bar** | Weeks 6–12  | Column UI, focused card, input bar, SSO auth, 1-col mobile + 2-col tablet              |
-| **Phase 3 — Chat (1:1 + Group)**           | Weeks 8–14  | ChatMessage object, MLS encryption, group host model, host migration, feed cards       |
-| **Phase 4 — Swipe + AI Pane**              | Weeks 10–15 | Left swipe (context-dependent column), right swipe (AI pane), animations               |
-| **Phase 5 — LLM Service**                  | Weeks 12–16 | LLM service, Claude integration, config read/write, action dispatch                    |
-| **Phase 6 — Circle of Trust**              | Weeks 14–18 | Controlled accounts, TrustRequest/TrustGrant, approval flow, config object permissions |
-| **Phase 7 — Object Model + Reviews**       | Weeks 16–19 | LightwebObject base, extension manifest loader, Review object                          |
-| **Phase 8 — Web Client**                   | Weeks 17–20 | Next.js web shell embedding shared mobile UI                                           |
-| **Phase 9 — Lightweb Cloud**               | Weeks 18–21 | Container provisioning, per-user isolation, billing hooks                              |
-| **Phase 10 — Polish & Launch**             | Weeks 21–26 | Performance, a11y, beta testing, app store submission                                  |
-| **Post-v1**                                | TBD         | Video chat (SFU on host server), TrustRequest open standard, business trust, Apple SSO |
+| Phase                                      | Timeline    | Deliverables                                                                                                          |
+| ------------------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Phase 0 — Foundation**                   | Weeks 1–3   | Monorepo, Next.js server scaffold, DB schema, Config Registry, WebFinger + Actor endpoints, Redis sidecar, Dockerfile |
+| **Phase 1 — Core Federation**              | Weeks 4–8   | AP engine (inbox/outbox), Follow/Accept, HTTP Signatures, `Note` and `ChatMessage` types                              |
+| **Phase 2 — Column Navigator + Input Bar** | Weeks 6–12  | Shared Solito UI, column navigator, focused card, input bar, SSO auth, 1-col mobile + 2-col tablet                    |
+| **Phase 3 — Chat (1:1 + Group)**           | Weeks 8–14  | ChatMessage object, MLS encryption, WebSocket server, group host model, host migration, feed cards                    |
+| **Phase 4 — Swipe + AI Pane**              | Weeks 10–15 | Left swipe (context-dependent column), right swipe (AI pane), animations, minimal client JS                           |
+| **Phase 5 — LLM Client**                   | Weeks 12–16 | LLM client module, Claude integration, config read/write, action dispatch                                             |
+| **Phase 6 — Circle of Trust**              | Weeks 14–18 | Controlled accounts, TrustRequest/TrustGrant, approval flow, config object permissions                                |
+| **Phase 7 — Object Model + Reviews**       | Weeks 16–19 | LightwebObject base, extension manifest loader, Review object                                                         |
+| **Phase 8 — Lightweb Cloud**               | Weeks 17–21 | K8s deployment, container provisioning, per-user DB creation, managed PG setup, billing hooks                         |
+| **Phase 9 — Polish & Launch**              | Weeks 21–26 | Performance, a11y, beta testing, app store submission                                                                 |
+| **Post-v1**                                | TBD         | Video chat (SFU on host server), TrustRequest open standard, business trust, Apple SSO                                |
 
 ---
 
