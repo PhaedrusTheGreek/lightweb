@@ -66,7 +66,7 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 | Goal                 | Metric                                                | Target (6 months post-launch) |
 | -------------------- | ----------------------------------------------------- | ----------------------------- |
 | Interoperability.    | Level of interoperability with non-LW implementations | Basic Functionality           |
-| AI intent resolution | % of natural language inputs correctly actioned       | > 99%                         |
+| AI intent resolution | % of natural language inputs correctly actioned       | > 99.9%                       |
 | Accessibility        | WCAG 2.1 AA compliance                                | 100% of core flows            |
 
 ---
@@ -276,6 +276,42 @@ Shared infrastructure (managed, external to containers):
 
 **Container capacity estimate:** On a 3-node GCP cluster (e2-medium, 4 GB RAM each, ~$75/month total), approximately 65–80 idle containers fit comfortably. Active containers with traffic consume more, so real-world capacity depends on usage patterns.
 
+### 5.7 Provider Abstractions
+
+All infrastructure dependencies are accessed through provider interfaces, configured via the Config Registry. Active providers are resolved at startup. Switching any provider requires only a config change and restart — no code changes.
+
+```typescript
+// LLM — external AI service
+interface LLMProvider {
+  complete(systemPrompt: string, messages: Message[]): Promise<LLMResponse>;
+}
+// Registered: ClaudeProvider | OpenAIProvider | GeminiProvider
+// Active: config.llm.provider
+
+// Database — content storage
+interface DatabaseProvider {
+  query<T>(sql: string, params: unknown[]): Promise<T[]>;
+  transaction<T>(fn: (tx: Transaction) => Promise<T>): Promise<T>;
+}
+// Registered: PostgresProvider | SQLiteProvider (dev/test)
+// Active: config.database.provider
+
+// Queue / Cache — real-time + caching
+interface QueueProvider {
+  publish(channel: string, message: unknown): Promise<void>;
+  subscribe(
+    channel: string,
+    handler: (message: unknown) => void,
+  ): Promise<void>;
+  cache: {
+    get<T>(key: string): Promise<T | null>;
+    set(key: string, value: unknown, ttlMs?: number): Promise<void>;
+  };
+}
+// Registered: RedisProvider | InMemoryProvider (dev/test)
+// Active: config.queue.provider
+```
+
 ---
 
 ## 6. ActivityPub Implementation
@@ -399,7 +435,7 @@ The content of the new column depends on the **type of the swiped card:**
 
 On a 1-column device (mobile default), the new content **replaces** the current column — the home feed slides fully off-screen left and the new content is full screen. Swipe right to return. On a 2+ column device, the new content opens as a new right column; existing columns compress left.
 
-#### Right Swipe → AI Mode Column
+#### Right Swipe → AI Mode Column (Context Dependent)
 
 Right swipe on any focused card opens the AI pane as a new column to the right. The full ActivityPub object of the swiped card is injected into the LLM context. Input bar becomes the AI chat interface.
 
@@ -426,12 +462,14 @@ HOME FEED — unified inbox (newest at bottom)
 │  🔒 Trust request from @child       │  ← TrustRequest — swipe left → trust view
 │                                     │
 │ ╔═════════════════════════════════╗ │
-│ ║ 💬 @alice: hey are you free?   ║ │  ← ChatMessage card — focused
+│ ║ 💬 @alice: hey are you free?    ║ │  ← ChatMessage card — focused
 │ ╚═════════════════════════════════╝ │    swipe left → opens full chat thread
 ├─────────────────────────────────────┤
 │  Reply to @alice…           [Send]  │  ← Input bar reflects focused card
 └─────────────────────────────────────┘
 ```
+
+The input bar never moves, it's function just changes based on context.
 
 #### Swipe Mechanics
 
@@ -464,18 +502,6 @@ LLM Client:
   5. Execute actions[] via AP engine or Config Registry writer
   6. Return replyText to client
 ```
-
-#### Provider Abstraction
-
-```typescript
-interface LLMProvider {
-  complete(systemPrompt: string, messages: Message[]): Promise<LLMResponse>;
-}
-// Registered providers: ClaudeProvider | OpenAIProvider | GeminiProvider
-// Active provider determined by config.llm.provider at startup
-```
-
-Switching LLM providers requires only a change to `config/registry.json` and a server restart. No code changes.
 
 #### LLM Permissions
 
@@ -1150,6 +1176,17 @@ The Config Registry is the single source of truth for all system behaviour. It i
     "temperature": 0.7,
   },
 
+  "database": {
+    "provider": "postgres", // "postgres" | "sqlite"
+    "connection_string_env": "DATABASE_URL", // actual URL loaded from env var
+  },
+
+  "queue": {
+    "provider": "redis", // "redis" | "in-memory"
+    "host": "127.0.0.1", // local sidecar
+    "port": 6379,
+  },
+
   "auth": {
     "sso_providers": ["google", "facebook"],
     "jwt_expiry_seconds": 3600,
@@ -1238,6 +1275,8 @@ The Config Registry is the single source of truth for all system behaviour. It i
 │   │   ├── base/         # LightwebObject, TrustRequest, TrustGrant, Review
 │   │   └── extensions/   # Internal extension manifests (Product, MediaItem, etc.)
 │   ├── llm-client/       # LLM provider abstraction (Claude, OpenAI, Gemini)
+│   ├── db-client/        # Database provider abstraction (Postgres, SQLite)
+│   ├── queue-client/     # Queue/cache provider abstraction (Redis, in-memory)
 │   ├── trust/            # Circle of Trust — account model, permission checks
 │   ├── crypto/           # MLS client, Ed25519/X25519 keypair mgmt, key backup
 │   ├── config-registry/  # Registry loader, reader, writer, TypeScript types
