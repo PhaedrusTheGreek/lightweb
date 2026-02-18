@@ -109,7 +109,7 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 - ✅ Content creation flow — LLM creates unsent draft cards in the feed; user composes via swipe-to-column or inline LLM dictation
 - ✅ **Chat-first messaging** — 1:1 and group chat, WhatsApp-equivalent, E2EE via MLS
 - ✅ **Federated DMs** — cross-implementation direct messaging via standard AP private `Note` objects; default-deny, configurable per account
-- ✅ **Conversation upgrade** — federated DMs automatically upgrade to encrypted `ChatMessage` + RCS when both parties have mutual relationship tags satisfying the `encrypted_chat` permission rule; unified chat thread UI with per-message encryption and RCS indicators
+- ✅ **Conversation upgrade** — federated DMs automatically upgrade to encrypted `ChatMessage` + RCS when both parties have mutual `Relationship` objects satisfying the `encrypted_chat` permission rule; unified chat thread UI with per-message encryption and RCS indicators
 - ✅ `ChatMessage` object type — dedicated type, always encrypted, separate from `Note`
 - ✅ Group chat with host server model — creator's server is MLS Delivery Service
 - ✅ Automatic group host migration — oldest remaining member's server takes over
@@ -122,12 +122,13 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 - ✅ Circle of Trust — account control model (open and controlled accounts)
 - ✅ TrustRequest / TrustGrant object types — permission escalation via ActivityPub
 - ✅ Allowlist permission model for all actions and config objects
-- ✅ Social relationship tags (`following`, `friend`, `close_friend`) with boolean permission rules (`any`/`all`)
-- ✅ Contact registry in Config Registry with aliases for LLM resolution
-- ✅ Friend request flow via TrustRequest; delegated permissions for controlled accounts
+- ✅ Native AS `Relationship` objects (`lw:following`, `lw:friendOf`, `lw:closeFriendOf`) stored in SQL with boolean permission rules (`any`/`all`)
+- ✅ Contact registry — relationships in SQL, aliases/metadata in Config Registry for LLM resolution
+- ✅ Friend request flow via TrustRequest (`Create Relationship`); delegated permissions for controlled accounts
 - ✅ LightwebObject base type with typed extension system
 - ✅ Encryption defined per extension manifest — `ChatMessage`: required, `Note`/`Article`: none
 - ✅ Reviews via native ActivityStreams objects — `Like` (👍), `Dislike` (👎), `Note` (blurb), applicable per object type
+- ✅ Streams — topic-specific feeds published via the native AP `streams` property on the Actor object; each stream is an `OrderedCollection`
 - ✅ MLS (RFC 9420) E2EE for ChatMessage and TrustRequest objects
 - ✅ Hybrid key storage — client-side primary, encrypted server backup
 - ✅ Managed hosting — Lightweb Cloud, single-user-per-server (dedicated container per user, domain = identity)
@@ -396,28 +397,32 @@ interface QueueProvider {
 
 ### 6.1 Required Endpoints
 
-| Endpoint                     | Method | Purpose                      |
-| ---------------------------- | ------ | ---------------------------- |
-| `/.well-known/webfinger`     | GET    | Actor discovery              |
-| `/.well-known/nodeinfo`      | GET    | Server metadata              |
-| `/users/:username`           | GET    | Actor object                 |
-| `/users/:username/inbox`     | POST   | Receive federated activities |
-| `/users/:username/outbox`    | GET    | Published activities         |
-| `/users/:username/followers` | GET    | Followers collection         |
-| `/users/:username/following` | GET    | Following collection         |
+| Endpoint                       | Method | Purpose                      |
+| ------------------------------ | ------ | ---------------------------- |
+| `/.well-known/webfinger`       | GET    | Actor discovery              |
+| `/.well-known/nodeinfo`        | GET    | Server metadata              |
+| `/users/:username`             | GET    | Actor object                 |
+| `/users/:username/inbox`       | POST   | Receive federated activities |
+| `/users/:username/outbox`      | GET    | Published activities         |
+| `/users/:username/followers`   | GET    | Followers collection         |
+| `/users/:username/following`   | GET    | Following collection         |
+| `/users/:username/streams`     | GET    | List of topic streams        |
+| `/users/:username/streams/:id` | GET    | Individual stream collection |
 
 ### 6.2 Activity Types (v1.0)
 
 - `Create` (Note) — status updates and federated DMs (private `Note` with restricted addressing)
 - `Create` (Article) — long-form posts (plain text only, no HTML)
-- `Create` (ChatMessage) — E2EE chat messages (Lightweb-to-Lightweb, mutual relationship tags required)
+- `Create` (ChatMessage) — E2EE chat messages (Lightweb-to-Lightweb, mutual `Relationship` objects required)
 - `Create` (TrustRequest) — permission escalation and friend requests (always E2EE via MLS)
 - `Create` (TrustGrant) — permission approval and friend acceptance (always E2EE via MLS)
 - `Follow` / `Accept` / `Reject`
 - `Like`
 - `Announce` — boosts / reposts
 - `Delete`
-- `Undo` — un-follow, un-like, un-boost
+- `Dislike` — 👎 negative rating (review mechanism)
+- `Undo` — un-follow, un-like, un-dislike, un-boost
+- `Add` / `Remove` — manage stream membership (add/remove objects to/from a stream `OrderedCollection`)
 
 ### 6.3 Security Requirements
 
@@ -517,6 +522,7 @@ The content of the new column depends on the **type of the swiped card:**
 | `ChatMessage` (incoming message)      | Full E2EE chat thread with that contact or group           |
 | `TrustRequest`                        | Trust context for that request                             |
 | Follow / activity notification card   | That actor's feed                                          |
+| Stream card                           | That stream's topic feed                                   |
 | Draft card (unsent)                   | Compose view for that draft                                |
 
 On a 1-column device (mobile default), the new content **replaces** the current column — the home feed slides off-screen in the opposite direction and the detail view takes over full screen. Swiping back in the opposite direction restores the home feed. On a 2+ column device, the new column is added in the swipe direction; existing columns compress to make room.
@@ -536,10 +542,12 @@ There is no dedicated "AI mode" or "AI pane." The LLM is the **default input han
 - `"Mute words like this"` (card focused) → LLM updates muted keywords in Config Registry
 - `"Change my bio to…"` (no card focused) → LLM updates user profile via API
 - `"Text steve"` (no card focused) → LLM resolves contact, opens chat
+- `"Create a stream called Photography"` (no card focused) → LLM creates `OrderedCollection`, adds to actor's `streams`
+- `"Post this to my photography stream"` (card focused) → LLM adds object to stream via `Add` activity
 
 #### The Home Feed as Unified Inbox
 
-The home feed is the **single inbox for all events** — messages, status updates, articles, follow notifications, trust requests, likes, dislikes. There are no separate notification screens, badge counts, or inbox/feed distinctions.
+The home feed is the **single inbox for all events** — messages, status updates, articles, follow notifications, trust requests, likes, dislikes. There are no separate notification screens, badge counts, or inbox/feed distinctions. Users can also create **streams** — topic-specific feeds that curate a subset of their content (see §9.13). Streams appear as swipeable cards in the home feed and as entries in the actor's `streams` property for federated discovery.
 
 ```
 HOME FEED — unified inbox (newest at bottom)
@@ -652,20 +660,20 @@ Chat is a **first-class, primary feature** of Lightweb Browser v1 — equivalent
 
 #### Two Wire Types, One Thread
 
-|                   | Federated DM                                                                             | Encrypted Chat                                                                |
-| ----------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| **Wire type**     | `Note` (private addressing)                                                              | `ChatMessage` (Lightweb custom)                                               |
-| **AP compatible** | All implementations                                                                      | Lightweb (+ future MLS-capable servers)                                       |
-| **Encryption**    | None (standard AP transport)                                                             | Always E2EE (MLS)                                                             |
-| **RCS features**  | None (typing, read receipts, presence unavailable)                                       | Full (typing indicators, read receipts, presence)                             |
-| **Delivery**      | AP inbox (polling)                                                                       | WebSocket real-time + 5s fallback                                             |
-| **Requires**      | `messaging.allow_insecure_dm` or sender matches `insecure_dm` permission rule (see §8.8) | Mutual relationship tags matching `encrypted_chat` permission rule (see §8.8) |
+|                   | Federated DM                                                                             | Encrypted Chat                                                                     |
+| ----------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Wire type**     | `Note` (private addressing)                                                              | `ChatMessage` (Lightweb custom)                                                    |
+| **AP compatible** | All implementations                                                                      | Lightweb (+ future MLS-capable servers)                                            |
+| **Encryption**    | None (standard AP transport)                                                             | Always E2EE (MLS)                                                                  |
+| **RCS features**  | None (typing, read receipts, presence unavailable)                                       | Full (typing indicators, read receipts, presence)                                  |
+| **Delivery**      | AP inbox (polling)                                                                       | WebSocket real-time + 5s fallback                                                  |
+| **Requires**      | `messaging.allow_insecure_dm` or sender matches `insecure_dm` permission rule (see §8.8) | Mutual `Relationship` objects matching `encrypted_chat` permission rule (see §8.8) |
 
 Both types are rendered in the **same chat thread column** — the user sees one conversation, not two. Per-message indicators show encryption and RCS status.
 
 #### Conversation Lifecycle — The Upgrade Path
 
-Every 1:1 conversation follows a state machine driven by the mutual relationship tag state of the two parties:
+Every 1:1 conversation follows a state machine driven by the mutual `Relationship` state of the two parties:
 
 ```
 CONVERSATION STATES (per contact pair)
@@ -682,11 +690,11 @@ CONVERSATION STATES (per contact pair)
   │  Works with: any AP server (Mastodon, Pleroma, etc) │
   └──────────────────────┬──────────────────────────────┘
                          │
-                  both parties mutually
-                  tagged such that
-                  encrypted_chat permission
+                  both parties have mutual
+                  Relationship objects such
+                  that encrypted_chat permission
                   rule evaluates to true
-                  (e.g. mutual "friend" tag)
+                  (e.g. mutual lw:friendOf)
                          │
                          ▼
   ┌─────────────────────────────────────────────────────┐
@@ -699,9 +707,9 @@ CONVERSATION STATES (per contact pair)
   └─────────────────────────────────────────────────────┘
 ```
 
-The upgrade is **per-relationship, not per-message.** Once both sides have relationship tags that satisfy the `encrypted_chat` permission rule (e.g. mutual `friend` tag), the MLS group is established and all future messages use `ChatMessage`. Historical federated DM `Note` objects remain visible in the thread but are permanently marked as unencrypted.
+The upgrade is **per-relationship, not per-message.** Once both sides have `Relationship` objects that satisfy the `encrypted_chat` permission rule (e.g. mutual `lw:friendOf`), the MLS group is established and all future messages use `ChatMessage`. Historical federated DM `Note` objects remain visible in the thread but are permanently marked as unencrypted.
 
-**Upgrade trigger:** When the second party accepts a friend request (creating mutual tags that satisfy the `encrypted_chat` permission rule):
+**Upgrade trigger:** When the second party accepts a friend request (creating mutual `Relationship` objects that satisfy the `encrypted_chat` permission rule):
 
 1. Initiating server creates an MLS group `[alice, bob]`
 2. Sends MLS Welcome message to the other party's server
@@ -710,7 +718,7 @@ The upgrade is **per-relationship, not per-message.** Once both sides have relat
 5. WebSocket channel established — RCS features activate
 6. All future messages in this thread are `ChatMessage`
 
-The upgrade is **irreversible** — removing the relationship tag that enabled encryption ends the conversation, it does not downgrade it back to federated DM.
+The upgrade is **irreversible** — removing the `Relationship` object that enabled encryption ends the conversation, it does not downgrade it back to federated DM.
 
 **Federated DM acceptance rules:**
 
@@ -846,10 +854,10 @@ CHAT THREAD — @bob@mastodon.social
 
 **Indicator combinations in practice:**
 
-| Conversation mode | E2EE | RCS | Notes                                                  |
-| ----------------- | ---- | --- | ------------------------------------------------------ |
-| Federated         | ❌   | ❌  | Standard AP DM — any implementation                    |
-| Encrypted         | ✅   | ✅  | Mutual relationship tags — ChatMessage always has both |
+| Conversation mode | E2EE | RCS | Notes                                                       |
+| ----------------- | ---- | --- | ----------------------------------------------------------- |
+| Federated         | ❌   | ❌  | Standard AP DM — any implementation                         |
+| Encrypted         | ✅   | ✅  | Mutual `Relationship` objects — ChatMessage always has both |
 
 RCS requires `ChatMessage`, and `ChatMessage` is always E2EE, so RCS is always encrypted. The indicators are shown independently to communicate _why_ — users understand real-time chat requires mutual trust.
 
@@ -873,7 +881,7 @@ If the host server goes offline, the **oldest remaining member's server** automa
 
 **Group membership changes:**
 
-- Adding a member: any existing member can add (subject to their Circle of Trust relationship tags)
+- Adding a member: any existing member can add (subject to their Circle of Trust `Relationship` objects)
 - Removing a member: any member can remove themselves; group admin can remove others
 - Every membership change triggers an MLS commit and key rotation — past messages remain inaccessible to removed members (forward secrecy)
 
@@ -881,7 +889,7 @@ If the host server goes offline, the **oldest remaining member's server** automa
 
 No buttons. The user focuses any card from another user and types a message in the input bar. The LLM infers intent and creates a new conversation if one doesn't exist, or routes to the existing thread if it does. The user never thinks about "creating a conversation."
 
-If the recipient is on a remote non-Lightweb server, the message is sent as a federated DM (`Note` with private addressing). If the recipient is on Lightweb and mutual relationship tags satisfy the `encrypted_chat` permission rule, it goes as `ChatMessage`. The user doesn't choose — the system selects the best available transport.
+If the recipient is on a remote non-Lightweb server, the message is sent as a federated DM (`Note` with private addressing). If the recipient is on Lightweb and mutual `Relationship` objects satisfy the `encrypted_chat` permission rule, it goes as `ChatMessage`. The user doesn't choose — the system selects the best available transport.
 
 ---
 
@@ -970,8 +978,11 @@ When a controlled account attempts an action not on their allowlist, the system 
   "actor": "https://alice.lightweb.cloud/users/alice", // requesting account
   "target": "https://bob.lightweb.cloud/users/bob", // recipient (not a controller)
   "requestedAction": {
-    "type": "AddRelationshipTag",
-    "tag": "friend", // which relationship tag is being requested
+    "type": "Create",
+    "object": {
+      "type": "Relationship",
+      "relationship": "https://lightwebbrowser.org/ns/friendOf",
+    },
   },
   "scope": "persistent",
   "message": "I'd like to add you as a friend",
@@ -1053,33 +1064,64 @@ No new primitives required. Only new extension manifests defining business-relev
 
 ### 8.8 Social Relationships & Contact Registry
 
-Relationships between users are expressed as **independent, non-hierarchical tags** applied to contacts. Tags are not tiers — they do not imply each other. A contact tagged `friend` is not automatically `following`; a contact tagged `close_friend` is not automatically `friend`. Each tag is applied or removed as a separate action.
+Relationships between users are modelled as native ActivityStreams `Relationship` objects stored in the SQL database. Each relationship is an independent, non-hierarchical link between two actors — they do not imply each other. A `lw:friendOf` relationship does not automatically create `lw:following`; a `lw:closeFriendOf` does not automatically create `lw:friendOf`. Each relationship is created or removed as a separate action.
 
-#### Relationship Tags (v1)
+#### Relationship Types (v1)
 
-| Tag            | Meaning                                   | AP Activity                |
-| -------------- | ----------------------------------------- | -------------------------- |
-| `following`    | You follow their public content           | Standard AP `Follow`       |
-| `friend`       | Explicit trust relationship               | `TrustRequest` (see below) |
-| `close_friend` | Highest trust — reserved for inner circle | `TrustRequest` (see below) |
+| Relationship Type  | Meaning                                   | AP Activity                |
+| ------------------ | ----------------------------------------- | -------------------------- |
+| `lw:following`     | You follow their public content           | Standard AP `Follow`       |
+| `lw:friendOf`      | Explicit trust relationship               | `TrustRequest` (see below) |
+| `lw:closeFriendOf` | Highest trust — reserved for inner circle | `TrustRequest` (see below) |
 
-Tags are free strings stored in the Config Registry. The v1 set is `["following", "friend", "close_friend"]`, but the system is extensible — post-v1 tags (e.g. `colleague`, `family`) require no code changes, only config.
+Relationship types are URIs under the Lightweb namespace (`https://lightwebbrowser.org/ns/`). The v1 set is `["lw:following", "lw:friendOf", "lw:closeFriendOf"]`, but the system is extensible — post-v1 types (e.g. `lw:colleagueOf`, `lw:familyOf`) require no code changes, only config.
 
-#### Contact Registry
+#### Relationship Storage (SQL)
 
-Every contact is stored in the Config Registry under `social.contacts`, keyed by actor URI:
+Relationships are stored in the SQL database as addressable AP objects:
+
+```sql
+-- relationships table
+id            TEXT PRIMARY KEY,   -- AP object URI (e.g. https://alice.lightweb.cloud/relationships/abc123)
+subject       TEXT NOT NULL,      -- local actor URI
+object        TEXT NOT NULL,      -- remote actor URI
+relationship  TEXT NOT NULL,      -- relationship type URI (e.g. lw:friendOf)
+created_at    TIMESTAMP NOT NULL,
+
+-- fast permission lookups
+CREATE INDEX idx_rel_subject_object ON relationships (subject, object);
+CREATE INDEX idx_rel_subject_type ON relationships (subject, relationship);
+```
+
+Each row serializes to a native AS `Relationship` object on federation or API requests:
+
+```jsonc
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://lightwebbrowser.org/ns",
+  ],
+  "type": "Relationship",
+  "id": "https://alice.lightweb.cloud/relationships/abc123",
+  "subject": "https://alice.lightweb.cloud/users/alice",
+  "object": "https://bob.lightweb.cloud/users/bob",
+  "relationship": "https://lightwebbrowser.org/ns/friendOf",
+}
+```
+
+#### Contact Registry (Config)
+
+Contact metadata that is not federated — aliases and display preferences — remains in the Config Registry under `social.contacts`, keyed by actor URI:
 
 ```jsonc
 {
   "social": {
     "contacts": {
       "https://bob.lightweb.cloud/users/bob": {
-        "tags": ["following", "friend"],
         "aliases": ["bob", "Bob Smith"],
         "addedAt": "2026-02-17T12:00:00Z",
       },
       "https://carol.example.com/users/carol": {
-        "tags": ["following"],
         "aliases": ["carol"],
         "addedAt": "2026-02-18T10:00:00Z",
       },
@@ -1088,35 +1130,47 @@ Every contact is stored in the Config Registry under `social.contacts`, keyed by
 }
 ```
 
-- `tags` — set of active relationship tags (independent, not hierarchical)
 - `aliases` — natural language names for LLM resolution (e.g. _"my dad"_, _"Bob"_). The LLM matches user references like _"message Bob"_ or _"ask my dad"_ against these aliases
 - `addedAt` — ISO timestamp of when the contact was first added
 
-#### Tag-Gated Permissions (Boolean Logic)
+Relationship state (which types exist between two actors) is always queried from the `relationships` table, never duplicated in config.
 
-Permissions are gated on relationship tags using boolean operators. Each permission rule uses `any` (OR) or `all` (AND) to define which tag combinations grant it:
+#### Relationship-Gated Permissions (Boolean Logic)
+
+Permissions are gated on relationship types using boolean operators. Each permission rule uses `any` (OR) or `all` (AND) to define which relationship type combinations grant it:
 
 ```jsonc
 {
   "social": {
     "permissions": {
-      "encrypted_chat": { "any": ["friend", "close_friend"] },
-      "insecure_dm": { "any": ["following", "friend", "close_friend"] },
-      "see_presence": { "all": ["following", "friend"] },
-      "see_read_receipts": { "any": ["close_friend"] },
+      "encrypted_chat": { "any": ["lw:friendOf", "lw:closeFriendOf"] },
+      "insecure_dm": {
+        "any": ["lw:following", "lw:friendOf", "lw:closeFriendOf"],
+      },
+      "see_presence": { "all": ["lw:following", "lw:friendOf"] },
+      "see_read_receipts": { "any": ["lw:closeFriendOf"] },
     },
   },
 }
 ```
 
-| Operator | Logic | Meaning                                               |
-| -------- | ----- | ----------------------------------------------------- |
-| `any`    | OR    | Contact must have **at least one** of the listed tags |
-| `all`    | AND   | Contact must have **all** of the listed tags          |
+| Operator | Logic | Meaning                                                           |
+| -------- | ----- | ----------------------------------------------------------------- |
+| `any`    | OR    | At least one listed relationship type must exist for this contact |
+| `all`    | AND   | All listed relationship types must exist for this contact         |
 
-v1 supports one operator per permission rule. Combining `any` and `all` in a single rule (e.g. `{ "all": ["following"], "any": ["friend", "close_friend"] }`) is a post-v1 consideration.
+v1 supports one operator per permission rule. Combining `any` and `all` in a single rule (e.g. `{ "all": ["lw:following"], "any": ["lw:friendOf", "lw:closeFriendOf"] }`) is a post-v1 consideration.
 
-**Permission evaluation:** When the system needs to check whether a contact is allowed a capability (e.g. encrypted chat), it reads the contact's tags from `social.contacts` and evaluates them against the corresponding permission rule in `social.permissions`. If the rule evaluates to `true`, the capability is granted.
+**Permission evaluation:** When the system needs to check whether a contact is allowed a capability (e.g. encrypted chat), it queries the `relationships` table for all relationship types between the local actor and the contact, then evaluates them against the corresponding permission rule in `social.permissions`. If the rule evaluates to `true`, the capability is granted.
+
+```sql
+-- Example: "any" (OR) check for encrypted_chat
+SELECT EXISTS (
+  SELECT 1 FROM relationships
+  WHERE subject = :local_actor AND object = :contact_actor
+  AND relationship IN ('lw:friendOf', 'lw:closeFriendOf')
+);
+```
 
 #### Follow Policy
 
@@ -1127,11 +1181,11 @@ For open accounts, incoming AP `Follow` requests are handled according to `socia
 | `auto_accept`       | Incoming follows are automatically accepted (default for open accounts) |
 | `approval_required` | Incoming follows generate a card in the feed; user must approve         |
 
-For controlled accounts, incoming follows are always subject to the controller's approval (unless `following` is in delegated permissions — see §8.9).
+For controlled accounts, incoming follows are always subject to the controller's approval (unless `lw:following` is in delegated permissions — see §8.9).
 
 #### Friend Request Flow (TrustRequest-Based)
 
-Adding a `friend` or `close_friend` tag to a contact is a trust-sensitive action that requires the other party's consent. The flow uses the existing `TrustRequest` mechanism:
+Creating a `lw:friendOf` or `lw:closeFriendOf` relationship is a trust-sensitive action that requires the other party's consent. The flow uses the existing `TrustRequest` mechanism:
 
 ```
 FRIEND REQUEST FLOW
@@ -1142,15 +1196,16 @@ FRIEND REQUEST FLOW
         ▼
   ┌─────────────────────────────┐
   │ Is Alice a controlled       │
-  │ account? And is "friend"    │──── Yes ───▶ TrustRequest to
+  │ account? And is "friendOf"  │──── Yes ───▶ TrustRequest to
   │ NOT in delegated perms?     │              Alice's controller
   └──────── No (or delegated) ──┘              (must approve first)
         │
         ▼
   System generates TrustRequest
   with requestedAction.type:
-  "AddRelationshipTag"
-  and tag: "friend"
+  "Create" and
+  requestedAction.object.type:
+  "Relationship" (lw:friendOf)
         │
         ▼
   TrustRequest sent to Bob
@@ -1164,41 +1219,41 @@ FRIEND REQUEST FLOW
         ▼
   ┌─────────────────────────────┐
   │ Bob accepts                 │
-  │ → Bob's config adds Alice   │
-  │   with "friend" tag         │
+  │ → Relationship(lw:friendOf) │
+  │   created in Bob's DB       │
   │ → TrustGrant sent to Alice  │
-  │ → Alice's config adds Bob   │
-  │   with "friend" tag         │
+  │ → Relationship(lw:friendOf) │
+  │   created in Alice's DB     │
   └─────────────────────────────┘
         │
         ▼
   ┌─────────────────────────────┐
-  │ Mutual "friend" tag now     │
+  │ Mutual lw:friendOf          │
   │ exists? AND encrypted_chat  │──── Yes ───▶ Create MLS group,
   │ permission matches?         │              upgrade conversation
   └──────── No ─────────────────┘
         │
         ▼
-  Done (one-way tag only)
+  Done (one-way relationship only)
 ```
 
-**Tag promotion:** The same flow applies when promoting a contact (e.g. adding `close_friend` to someone already tagged `friend`). The TrustRequest specifies the new tag being added.
+**Relationship promotion:** The same flow applies when adding a new relationship type to an existing contact (e.g. creating `lw:closeFriendOf` for someone who already has `lw:friendOf`). The TrustRequest specifies the relationship type being created.
 
-**Tag removal (demotion):** Removing a tag from a contact is **unilateral** — no TrustRequest is needed. If you remove `friend` from a contact, that ends the mutual friendship. Removing a tag that gates `encrypted_chat` ends the encrypted conversation (irreversible — it does not downgrade to federated DM).
+**Relationship removal:** Removing a relationship is **unilateral** — no TrustRequest is needed. The local `Relationship` row is deleted. If you remove `lw:friendOf` from a contact, that ends the mutual friendship. Removing a relationship type that gates `encrypted_chat` ends the encrypted conversation (irreversible — it does not downgrade to federated DM).
 
-#### Adding the `following` Tag
+#### The `lw:following` Relationship
 
-The `following` tag is special — it corresponds to the standard AP `Follow` activity. When a user says _"follow @bob"_:
+The `lw:following` relationship type is special — it corresponds to the standard AP `Follow` activity. When a user says _"follow @bob"_:
 
 1. System sends a standard AP `Follow` activity to Bob's server
 2. Bob's server responds with `Accept` or `Reject` (per Bob's `follow_policy`)
-3. On `Accept`, Alice's config adds Bob to `social.contacts` with `tags: ["following"]`
+3. On `Accept`, a `Relationship` row is inserted: `subject=Alice, object=Bob, relationship=lw:following`
 
-This ensures interoperability — the `following` tag maps 1:1 to AP Follow, so it works with any AP server (Mastodon, Pleroma, etc.), not just Lightweb.
+This ensures interoperability — `lw:following` maps 1:1 to AP Follow, so it works with any AP server (Mastodon, Pleroma, etc.), not just Lightweb.
 
 ### 8.9 Delegated Permissions for Controlled Accounts
 
-By default, all configuration changes on a controlled account require controller approval (generating a `TrustRequest`). However, the controller can **delegate** specific relationship tag changes to the controlled account, allowing them to act autonomously for those tags.
+By default, all relationship changes on a controlled account require controller approval (generating a `TrustRequest`). However, the controller can **delegate** specific relationship type changes to the controlled account, allowing them to act autonomously for those types.
 
 Delegated permissions are stored in the Config Registry under `trust.delegated_permissions`:
 
@@ -1208,17 +1263,17 @@ Delegated permissions are stored in the Config Registry under `trust.delegated_p
     "account_type": "controlled",
     "controllers": ["https://parent.lightweb.cloud/users/parent"],
     "delegated_permissions": {
-      "follow": true, // child can add/remove "following" tag without approval
-      "friend": false, // adding "friend" tag requires controller approval
-      "close_friend": false, // adding "close_friend" tag requires controller approval
+      "lw:following": true, // child can follow/unfollow without approval
+      "lw:friendOf": false, // creating friendOf relationship requires controller approval
+      "lw:closeFriendOf": false, // creating closeFriendOf relationship requires controller approval
     },
   },
 }
 ```
 
-When a tag change matches a delegated permission set to `true`, no `TrustRequest` is generated to the controller — the controlled account proceeds autonomously. The controller can adjust delegated permissions at any time via their own LLM (writing to the controlled account's config).
+When a relationship type change matches a delegated permission set to `true`, no `TrustRequest` is generated to the controller — the controlled account proceeds autonomously. The controller can adjust delegated permissions at any time via their own LLM (writing to the controlled account's config).
 
-**Example:** A parent might delegate `follow` permission to their child so the child can follow accounts freely, while still requiring approval for `friend` requests (which unlock encrypted chat and other trust-gated features).
+**Example:** A parent might delegate `lw:following` permission to their child so the child can follow accounts freely, while still requiring approval for `lw:friendOf` requests (which unlock encrypted chat and other trust-gated features).
 
 ---
 
@@ -1276,46 +1331,46 @@ The table below maps every AP/AS standard type to Lightweb's implementation stat
 
 #### Objects
 
-| AP/AS Object        | v1  | Implementation | Lightweb Usage                                                                             |
-| ------------------- | --- | -------------- | ------------------------------------------------------------------------------------------ |
-| `Note`              | ✅  | Extended       | Status updates, fedi-DMs — short-form plain text, extended with `lwTags`, `lwMetadata`     |
-| `Article`           | ✅  | Extended       | Long-form posts — plain text (no HTML), extended with `lwTags`, `lwMetadata`               |
-| `Audio`             | ✅  | Extended       | Podcast episodes, music tracks — extended with `lwMetadata`, `lwTags`                      |
-| `Document`          | —   |                |                                                                                            |
-| `Event`             | —   |                |                                                                                            |
-| `Image`             | ✅  | Native         | Used as attachment on Notes, Products, etc.                                                |
-| `Page`              | —   |                |                                                                                            |
-| `Place`             | —   |                |                                                                                            |
-| `Profile`           | —   |                | Actor profile data stored on the Actor object directly                                     |
-| `Relationship`      | —   |                | Relationships modelled via tag-based system, not AP Relationship objects                   |
-| `Tombstone`         | ✅  | Native         | Marks deleted objects for federation consistency                                           |
-| `Video`             | ✅  | Extended       | TV episodes, movies, short videos — extended with `lwMetadata`, `lwTags`                   |
-| `Link`              | ✅  | Native         | Standard AP link references                                                                |
-| `Mention`           | ✅  | Native         | @-mentions in Notes and Articles                                                           |
-| `OrderedCollection` | ✅  | Extended       | Menus, playlists, TV shows, storefronts — extended with `lwMetadata.displayHint`, `lwTags` |
-| `Collection`        | ✅  | Native         | Standard AP collections (followers, following, outbox)                                     |
-| `CollectionPage`    | ✅  | Native         | Pagination for large collections                                                           |
+| AP/AS Object        | v1  | Implementation | Lightweb Usage                                                                                                          |
+| ------------------- | --- | -------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `Note`              | ✅  | Extended       | Status updates, fedi-DMs — short-form plain text, extended with `lwTags`, `lwMetadata`                                  |
+| `Article`           | ✅  | Extended       | Long-form posts — plain text (no HTML), extended with `lwTags`, `lwMetadata`                                            |
+| `Audio`             | ✅  | Extended       | Podcast episodes, music tracks — extended with `lwMetadata`, `lwTags`                                                   |
+| `Document`          | —   |                |                                                                                                                         |
+| `Event`             | —   |                |                                                                                                                         |
+| `Image`             | ✅  | Native         | Used as attachment on Notes, Products, etc.                                                                             |
+| `Page`              | —   |                |                                                                                                                         |
+| `Place`             | —   |                |                                                                                                                         |
+| `Profile`           | —   |                | Actor profile data stored on the Actor object directly                                                                  |
+| `Relationship`      | ✅  | Native         | Native AS Relationship objects stored in SQL; permission rules gate on relationship types via boolean `any`/`all` logic |
+| `Tombstone`         | ✅  | Native         | Marks deleted objects for federation consistency                                                                        |
+| `Video`             | ✅  | Extended       | TV episodes, movies, short videos — extended with `lwMetadata`, `lwTags`                                                |
+| `Link`              | ✅  | Native         | Standard AP link references                                                                                             |
+| `Mention`           | ✅  | Native         | @-mentions in Notes and Articles                                                                                        |
+| `OrderedCollection` | ✅  | Extended       | Menus, playlists, TV shows, storefronts, **streams** — extended with `lwMetadata.displayHint`, `lwTags`                 |
+| `Collection`        | ✅  | Native         | Standard AP collections (followers, following, outbox)                                                                  |
+| `CollectionPage`    | ✅  | Native         | Pagination for large collections                                                                                        |
 
 #### Actors
 
-| AP/AS Actor    | v1  | Implementation | Lightweb Usage                                                          |
-| -------------- | --- | -------------- | ----------------------------------------------------------------------- |
-| `Person`       | ✅  | Extended       | Primary user actor — extended with Lightweb trust and config properties |
-| `Application`  | —   |                |                                                                         |
-| `Group`        | —   |                | Group chat uses MLS, not AP Group actors                                |
-| `Organization` | —   |                |                                                                         |
-| `Service`      | —   |                |                                                                         |
+| AP/AS Actor    | v1  | Implementation | Lightweb Usage                                                                                    |
+| -------------- | --- | -------------- | ------------------------------------------------------------------------------------------------- |
+| `Person`       | ✅  | Extended       | Primary user actor — extended with Lightweb trust/config properties and `streams` for topic feeds |
+| `Application`  | —   | Future         |                                                                                                   |
+| `Group`        | —   | Future         |                                                                                                   |
+| `Organization` | —   | Future         |                                                                                                   |
+| `Service`      | —   | Future         |                                                                                                   |
 
 #### Lightweb Proprietary Types (no AP/AS equivalent)
 
-| Lightweb Type  | v1  | AP/AS Basis | Notes                                                                             |
-| -------------- | --- | ----------- | --------------------------------------------------------------------------------- |
-| `ChatMessage`  | ✅  | Proprietary | MLS-encrypted chat message — no standard AP equivalent for E2EE messaging         |
-| `TrustRequest` | ✅  | Proprietary | Permission escalation request — always encrypted. Publishing spec planned for v2  |
-| `TrustGrant`   | ✅  | Proprietary | Permission approval — always encrypted. Publishing spec planned for v2            |
-| `Product`      | ✅  | Proprietary | Purchasable item (physical, digital, or service). Publishing spec planned for v3+ |
+| Lightweb Type  | v1  | AP/AS Basis | Notes                                                                     |
+| -------------- | --- | ----------- | ------------------------------------------------------------------------- |
+| `ChatMessage`  | ✅  | Proprietary | MLS-encrypted chat message — no standard AP equivalent for E2EE messaging |
+| `TrustRequest` | ✅  | Proprietary | Permission escalation request — always encrypted.                         |
+| `TrustGrant`   | ✅  | Proprietary | Permission approval — always encrypted.                                   |
+| `Product`      | ✅  | Proprietary | Purchasable item (physical, digital, or service). out of scope for v1     |
 
-**Summary:** Lightweb implements 13 of 27 AP/AS activity types and 12 of 17 AP/AS object/actor types natively or with extensions. The 4 proprietary types fill gaps where AP/AS has no equivalent (E2EE messaging, trust delegation, commerce). Reviews are expressed via native `Like`, `Dislike`, and `Note` objects — no proprietary type needed. All proprietary types are published as open specs on a phased roadmap (§9.11). All text content is plain text — no HTML is ever rendered (§9.1).
+**Summary:** Lightweb implements 13 of 27 AP/AS activity types and 13 of 17 AP/AS object/actor types natively or with extensions. The 4 proprietary types fill gaps where AP/AS has no equivalent (E2EE messaging, trust delegation, commerce). Reviews are expressed via native `Like`, `Dislike`, and `Note` objects — no proprietary type needed. All proprietary types are published as open specs on a phased roadmap (§9.11). All text content is plain text — no HTML is ever rendered (§9.1).
 
 ### 9.3 Core Object Types (v1)
 
@@ -1515,6 +1570,7 @@ Lightweb uses the native AP/AS `Audio` and `Video` types directly, extended with
 | `Audio`             | Play, Save, Share, Like, Dislike, React     | ✅ Yes                         | ❌ No               |
 | `Video`             | Play, Save, Share, Like, Dislike, React     | ✅ Yes                         | ❌ No               |
 | `OrderedCollection` | Browse, Save, Share, React                  | 🟡 Inherits from children      | ❌ No               |
+| Stream (`OC`)       | Browse, Add, Remove, Delete, Share          | 🟡 Inherits from children      | ❌ No               |
 
 ### 9.9 Tags — Filtering and Discovery
 
@@ -1525,6 +1581,7 @@ Product tags:    "vegan", "gluten-free", "handmade", "service", "digital"
 Audio tags:      "podcast", "music", "interview", "audiobook"
 Video tags:      "episode", "movie", "4K", "mature", "documentary", "short"
 OrderedCollection tags: "restaurant", "menu", "tvshow", "season", "playlist", "storefront"
+Stream tags:    (topic tags matching stream content — "photography", "cooking", "tech")
 Note tags:       (user-defined, used for search and muting)
 Article tags:    "blog", "essay", "tutorial", "announcement"
 ```
@@ -1643,6 +1700,69 @@ Reviews are expressed using three native ActivityStreams objects — no propriet
 - Reviewable types at v1: `Article`, `Product`, `Audio`, `Video`
 - Aggregate counts (👍 total, 👎 total) computed server-side and cached
 - **Future:** blockchain or central authority for fraud-resistant Like/Dislike counts is a post-v1 consideration
+
+### 9.13 Streams — Topic-Specific Feeds
+
+A **stream** is a topic-specific feed that an actor publishes alongside their main outbox. Each stream is a native AP `OrderedCollection` listed in the actor's `streams` property — a standard AP property designed for exactly this purpose.
+
+**Streams vs. outbox:** The `outbox` contains _all_ activities produced by the actor. A stream is a curated subset — a filtered view on a specific topic. When an actor creates a `Note` or `Article` and assigns it to a stream, it appears in both the outbox (for followers who want everything) and the stream collection (for followers who want only that topic).
+
+```jsonc
+// Actor object with streams
+{
+  "@context": ["https://www.w3.org/ns/activitystreams", "https://lightwebbrowser.org/ns"],
+  "type": "Person",
+  "id": "https://alice.lightweb.cloud/users/alice",
+  "outbox": "https://alice.lightweb.cloud/users/alice/outbox",
+  "streams": [
+    {
+      "type": "OrderedCollection",
+      "id": "https://alice.lightweb.cloud/users/alice/streams/photography",
+      "name": "Photography",
+      "lwMetadata": { "displayHint": "feed" },
+      "lwTags": ["photography", "art"],
+      "totalItems": 42
+    },
+    {
+      "type": "OrderedCollection",
+      "id": "https://alice.lightweb.cloud/users/alice/streams/cooking",
+      "name": "Cooking",
+      "lwMetadata": { "displayHint": "feed" },
+      "lwTags": ["cooking", "recipes"],
+      "totalItems": 17
+    }
+  ]
+}
+
+// A Note published to a stream
+{
+  "type": "Create",
+  "actor": "https://alice.lightweb.cloud/users/alice",
+  "object": {
+    "type": "Note",
+    "id": "https://alice.lightweb.cloud/objects/note-789",
+    "content": "Golden hour at the pier today.",
+    "mediaType": "text/plain",
+    "attachment": [{ "type": "Image", "url": "..." }],
+    "lwTags": ["photography", "sunset"]
+  },
+  "target": "https://alice.lightweb.cloud/users/alice/streams/photography"
+}
+```
+
+**Stream rules:**
+
+- Streams are `OrderedCollection` objects with `lwMetadata.displayHint: "feed"` — any AP server sees a valid collection
+- An actor can have zero or more streams — there is no required default stream
+- The actor's `outbox` remains the canonical complete feed; streams are curated subsets
+- Objects can belong to multiple streams (e.g. a recipe photo in both "Photography" and "Cooking")
+- Stream membership is managed via native AP `Add` / `Remove` activities targeting the stream collection
+- Creating a stream: LLM creates an `OrderedCollection` and adds it to the actor's `streams` — _"create a stream called Photography"_
+- Deleting a stream: LLM removes the `OrderedCollection` from `streams` — objects themselves are not deleted
+- Publishing to a stream: LLM includes the `target` field pointing to the stream — _"post this to my photography stream"_
+- Followers can follow the actor (gets everything via outbox) or discover and follow individual streams for topic-specific content
+- Streams federate normally — remote actors can fetch any public stream via its `id` URL
+- On the home feed, own streams appear as swipeable cards; swiping opens the stream as a topic feed column
 
 ---
 
@@ -1848,16 +1968,18 @@ The Config Registry is the single source of truth for all system behaviour. It i
 
   "social": {
     "follow_policy": "auto_accept", // "auto_accept" | "approval_required"
-    "relationship_tags": ["following", "friend", "close_friend"], // extensible
+    "relationship_types": ["lw:following", "lw:friendOf", "lw:closeFriendOf"], // extensible
     "contacts": {
-      // keyed by actor URI — populated at runtime, empty at init
+      // keyed by actor URI — aliases/metadata only; relationships live in SQL
     },
     "permissions": {
-      // each rule uses "any" (OR) or "all" (AND) boolean logic
-      "encrypted_chat": { "any": ["friend", "close_friend"] },
-      "insecure_dm": { "any": ["following", "friend", "close_friend"] },
-      "see_presence": { "any": ["friend", "close_friend"] },
-      "see_read_receipts": { "any": ["close_friend"] },
+      // each rule uses "any" (OR) or "all" (AND) boolean logic on relationship types
+      "encrypted_chat": { "any": ["lw:friendOf", "lw:closeFriendOf"] },
+      "insecure_dm": {
+        "any": ["lw:following", "lw:friendOf", "lw:closeFriendOf"],
+      },
+      "see_presence": { "any": ["lw:friendOf", "lw:closeFriendOf"] },
+      "see_read_receipts": { "any": ["lw:closeFriendOf"] },
     },
   },
 
@@ -1865,10 +1987,10 @@ The Config Registry is the single source of truth for all system behaviour. It i
     "account_type": "open", // "open" | "controlled"
     "controllers": [], // actor URIs of controlling accounts
     "delegated_permissions": {
-      // only relevant for controlled accounts
-      "follow": true, // can add/remove "following" tag without approval
-      "friend": false, // adding "friend" tag requires controller approval
-      "close_friend": false, // adding "close_friend" tag requires controller approval
+      // only relevant for controlled accounts; keyed by relationship type
+      "lw:following": true, // can follow/unfollow without approval
+      "lw:friendOf": false, // creating friendOf relationship requires controller approval
+      "lw:closeFriendOf": false, // creating closeFriendOf relationship requires controller approval
     },
   },
 
@@ -1953,49 +2075,50 @@ The Config Registry is the single source of truth for all system behaviour. It i
 
 ## 14. Open Questions
 
-| #   | Question                         | Owner              | Status                                                                                                                                                                            |
-| --- | -------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | App name                         | Product            | 🟢 **Lightweb Browser**                                                                                                                                                           |
-| 2   | SSO providers                    | Product            | 🟢 Google + Apple. Additional providers (e.g. Facebook) are the cloud provider's responsibility, not the app spec                                                                 |
-| 3   | Notifications                    | Product            | 🟢 Replaced by feed cards — no separate notification system                                                                                                                       |
-| 4   | Account model                    | Product            | 🟢 Open or Controlled; no intermediate types                                                                                                                                      |
-| 5   | Controller LLM scope             | Product            | 🟢 Config-write only; cannot execute actions on controlled account                                                                                                                |
-| 6   | Allowlist philosophy             | Product            | 🟢 Confirmed — allowlist always, never deny                                                                                                                                       |
-| 7   | LLM write scope                  | Product + Security | 🟢 User LLM: own config objects only. Server-wide: operator only                                                                                                                  |
-| 8   | TrustRequest scopes              | Product            | 🟢 Three scopes: `once`, `content-only`, `persistent`                                                                                                                             |
-| 9   | Multiple controllers             | Product            | 🟢 Any one controller sufficient; first to respond wins                                                                                                                           |
-| 10  | Hosting model                    | Product            | 🟢 Single-user-per-server — dedicated container per user, domain = identity                                                                                                       |
-| 11  | Content moderation               | Product            | 🟢 None at v1. No comments. Reviews via native `Like`/`Dislike`/`Note` replace them                                                                                               |
-| 12  | E2EE                             | Engineering        | 🟢 MLS (RFC 9420). Hybrid key storage                                                                                                                                             |
-| 13  | Rating format                    | Product            | 🟢 👍 / 👎 via native Like/Dislike + optional Note blurb                                                                                                                          |
-| 14  | Extension namespace              | Product            | 🟢 v1 internal; v2 publish TrustRequest/TrustGrant; v3+ domain types                                                                                                              |
-| 15  | Chat thread layout               | Product            | 🟢 Full screen on 1-col mobile; right column on 2+ col tablet/web                                                                                                                 |
-| 16  | Group host migration             | Engineering        | 🟢 Automatic — oldest remaining member's server via MLS commit                                                                                                                    |
-| 17  | Column counts                    | Product            | 🟢 Mobile default 1, tablet 2–3; always user-configurable per device                                                                                                              |
-| 18  | Encryption per type              | Engineering        | 🟢 Defined in extension manifest (`encryption: "required"/"optional"/"none"`)                                                                                                     |
-| 19  | App store strategy               | Product            | 🟢 Single app — "Lightweb Browser" on iOS and Android. Server personalisation happens at first launch, not in the binary                                                          |
-| 20  | AI chat history                  | Product            | 🟢 Not stored — ephemeral per session                                                                                                                                             |
-| 21  | LLM API key                      | Engineering        | 🟢 Operator only at v1; user-owned LLM is post-v1                                                                                                                                 |
-| 22  | Remote feed connection           | Engineering        | 🟢 Background polling (default 60s, configurable) + on-demand WebSocket on swipe-to-connect                                                                                       |
-| 23  | Config registry tracking         | Engineering        | 🟢 Git-tracked — secrets via env vars only                                                                                                                                        |
-| 24  | Key revocation                   | Engineering        | 🟢 MLS epoch advancement — any group member triggers commit; old-epoch messages inaccessible after rotation                                                                       |
-| 25  | Reviewable types at v1           | Product            | 🟢 Article, Product, Audio, Video (reviewed via native Like/Dislike/Note)                                                                                                         |
-| 26  | Container orchestration          | Engineering        | 🟢 Kubernetes                                                                                                                                                                     |
-| 27  | Read receipts                    | Product            | 🟢 On by default. Post read receipt only on swipe-to-connect. Chat on delivery/view                                                                                               |
-| 29  | Object types                     | Product            | 🟢 8 core types: Note, Article, Audio, Video, ChatMessage, TrustRequest, TrustGrant, Product. Reviews via native Like/Dislike/Note. Collections use native AP `OrderedCollection` |
-| 30  | Collection implementation        | Engineering        | 🟢 Native AP `OrderedCollection` with Lightweb namespace properties (`lwMetadata`, `lwTags`)                                                                                      |
-| 31  | Background polling default       | Product            | 🟢 60s, user-configurable in registry                                                                                                                                             |
-| 32  | Services as type                 | Product            | 🟢 Services are Products with `lwTags: ["service"]` — no separate type                                                                                                            |
-| 33  | Apple Sign In                    | Legal + Eng        | 🟢 Included — Google + Apple are the two app-level SSO providers. Additional providers are the cloud provider's responsibility                                                    |
-| 34  | Hosting model detail             | Engineering        | 🟢 Single Next.js process + local Redis sidecar per container; managed PG (separate DB per user); shared S3/R2 and external LLM API                                               |
-| 35  | Extension namespace publication  | Product            | 🟢 v1 internal spec; v2 publish TrustRequest/TrustGrant; v3+ Product, Audio/Video lwMetadata extensions                                                                           |
-| 36  | Server architecture              | Engineering        | 🟢 Consolidated single Next.js process — no separate microservices. AP engine, LLM client, API, and web shell in one process                                                      |
-| 37  | Database hosting                 | Engineering        | 🟢 Managed PostgreSQL (e.g. Supabase) — separate database per user, connection pooling by provider                                                                                |
-| 38  | UI code sharing                  | Engineering        | 🟢 Solito + react-native-web — single shared UI across iOS, Android, and web. Minimal client JS for interactivity                                                                 |
-| 39  | Relationship model               | Product            | 🟢 Tag-based, non-hierarchical. Tags: `following`, `friend`, `close_friend`. Independent — `friend` does not imply `following`. Permissions gated via boolean `any`/`all` rules   |
-| 40  | Follow policy (open accounts)    | Product            | 🟢 Auto-accept by default; configurable to `approval_required` via LLM                                                                                                            |
-| 41  | Controlled account relationships | Product            | 🟢 All tag changes require controller approval by default; delegable per tag via `trust.delegated_permissions`                                                                    |
-| 42  | Friend request mechanism         | Product            | 🟢 Uses `TrustRequest` with `requestedAction.type: "AddRelationshipTag"`. Consent required from target. Mutual friendship triggers chat upgrade                                   |
+| #   | Question                         | Owner              | Status                                                                                                                                                                                                                  |
+| --- | -------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | App name                         | Product            | 🟢 **Lightweb Browser**                                                                                                                                                                                                 |
+| 2   | SSO providers                    | Product            | 🟢 Google + Apple. Additional providers (e.g. Facebook) are the cloud provider's responsibility, not the app spec                                                                                                       |
+| 3   | Notifications                    | Product            | 🟢 Replaced by feed cards — no separate notification system                                                                                                                                                             |
+| 4   | Account model                    | Product            | 🟢 Open or Controlled; no intermediate types                                                                                                                                                                            |
+| 5   | Controller LLM scope             | Product            | 🟢 Config-write only; cannot execute actions on controlled account                                                                                                                                                      |
+| 6   | Allowlist philosophy             | Product            | 🟢 Confirmed — allowlist always, never deny                                                                                                                                                                             |
+| 7   | LLM write scope                  | Product + Security | 🟢 User LLM: own config objects only. Server-wide: operator only                                                                                                                                                        |
+| 8   | TrustRequest scopes              | Product            | 🟢 Three scopes: `once`, `content-only`, `persistent`                                                                                                                                                                   |
+| 9   | Multiple controllers             | Product            | 🟢 Any one controller sufficient; first to respond wins                                                                                                                                                                 |
+| 10  | Hosting model                    | Product            | 🟢 Single-user-per-server — dedicated container per user, domain = identity                                                                                                                                             |
+| 11  | Content moderation               | Product            | 🟢 None at v1. No comments. Reviews via native `Like`/`Dislike`/`Note` replace them                                                                                                                                     |
+| 12  | E2EE                             | Engineering        | 🟢 MLS (RFC 9420). Hybrid key storage                                                                                                                                                                                   |
+| 13  | Rating format                    | Product            | 🟢 👍 / 👎 via native Like/Dislike + optional Note blurb                                                                                                                                                                |
+| 14  | Extension namespace              | Product            | 🟢 v1 internal; v2 publish TrustRequest/TrustGrant; v3+ domain types                                                                                                                                                    |
+| 15  | Chat thread layout               | Product            | 🟢 Full screen on 1-col mobile; right column on 2+ col tablet/web                                                                                                                                                       |
+| 16  | Group host migration             | Engineering        | 🟢 Automatic — oldest remaining member's server via MLS commit                                                                                                                                                          |
+| 17  | Column counts                    | Product            | 🟢 Mobile default 1, tablet 2–3; always user-configurable per device                                                                                                                                                    |
+| 18  | Encryption per type              | Engineering        | 🟢 Defined in extension manifest (`encryption: "required"/"optional"/"none"`)                                                                                                                                           |
+| 19  | App store strategy               | Product            | 🟢 Single app — "Lightweb Browser" on iOS and Android. Server personalisation happens at first launch, not in the binary                                                                                                |
+| 20  | AI chat history                  | Product            | 🟢 Not stored — ephemeral per session                                                                                                                                                                                   |
+| 21  | LLM API key                      | Engineering        | 🟢 Operator only at v1; user-owned LLM is post-v1                                                                                                                                                                       |
+| 22  | Remote feed connection           | Engineering        | 🟢 Background polling (default 60s, configurable) + on-demand WebSocket on swipe-to-connect                                                                                                                             |
+| 23  | Config registry tracking         | Engineering        | 🟢 Git-tracked — secrets via env vars only                                                                                                                                                                              |
+| 24  | Key revocation                   | Engineering        | 🟢 MLS epoch advancement — any group member triggers commit; old-epoch messages inaccessible after rotation                                                                                                             |
+| 25  | Reviewable types at v1           | Product            | 🟢 Article, Product, Audio, Video (reviewed via native Like/Dislike/Note)                                                                                                                                               |
+| 26  | Container orchestration          | Engineering        | 🟢 Kubernetes                                                                                                                                                                                                           |
+| 27  | Read receipts                    | Product            | 🟢 On by default. Post read receipt only on swipe-to-connect. Chat on delivery/view                                                                                                                                     |
+| 29  | Object types                     | Product            | 🟢 8 core types: Note, Article, Audio, Video, ChatMessage, TrustRequest, TrustGrant, Product. Reviews via native Like/Dislike/Note. Collections use native AP `OrderedCollection`                                       |
+| 30  | Collection implementation        | Engineering        | 🟢 Native AP `OrderedCollection` with Lightweb namespace properties (`lwMetadata`, `lwTags`)                                                                                                                            |
+| 31  | Background polling default       | Product            | 🟢 60s, user-configurable in registry                                                                                                                                                                                   |
+| 32  | Services as type                 | Product            | 🟢 Services are Products with `lwTags: ["service"]` — no separate type                                                                                                                                                  |
+| 33  | Apple Sign In                    | Legal + Eng        | 🟢 Included — Google + Apple are the two app-level SSO providers. Additional providers are the cloud provider's responsibility                                                                                          |
+| 34  | Hosting model detail             | Engineering        | 🟢 Single Next.js process + local Redis sidecar per container; managed PG (separate DB per user); shared S3/R2 and external LLM API                                                                                     |
+| 35  | Extension namespace publication  | Product            | 🟢 v1 internal spec; v2 publish TrustRequest/TrustGrant; v3+ Product, Audio/Video lwMetadata extensions                                                                                                                 |
+| 36  | Server architecture              | Engineering        | 🟢 Consolidated single Next.js process — no separate microservices. AP engine, LLM client, API, and web shell in one process                                                                                            |
+| 37  | Database hosting                 | Engineering        | 🟢 Managed PostgreSQL (e.g. Supabase) — separate database per user, connection pooling by provider                                                                                                                      |
+| 38  | UI code sharing                  | Engineering        | 🟢 Solito + react-native-web — single shared UI across iOS, Android, and web. Minimal client JS for interactivity                                                                                                       |
+| 39  | Relationship model               | Product            | 🟢 Native AS `Relationship` objects stored in SQL. Types: `lw:following`, `lw:friendOf`, `lw:closeFriendOf`. Independent — `lw:friendOf` does not imply `lw:following`. Permissions gated via boolean `any`/`all` rules |
+| 40  | Follow policy (open accounts)    | Product            | 🟢 Auto-accept by default; configurable to `approval_required` via LLM                                                                                                                                                  |
+| 41  | Controlled account relationships | Product            | 🟢 All relationship changes require controller approval by default; delegable per type via `trust.delegated_permissions`                                                                                                |
+| 42  | Friend request mechanism         | Product            | 🟢 Uses `TrustRequest` with `requestedAction.type: "Create"` and `object.type: "Relationship"`. Consent required from target. Mutual relationship triggers chat upgrade                                                 |
+| 43  | Streams (topic feeds)            | Product            | 🟢 Native AP `streams` property on Actor. Each stream is an `OrderedCollection` with `lwMetadata.displayHint: "feed"`. Managed via `Add`/`Remove` activities                                                            |
 
 ---
 
