@@ -270,7 +270,7 @@ Each user container runs locally:
 
 Shared infrastructure (managed, external to containers):
 
-- **Managed PostgreSQL** — separate database per user, hosted on a cloud provider (e.g. Supabase). Connection pooling handled by the provider. Each container connects to its own database via connection string
+- **Managed SQL** — separate database per user, hosted on a cloud provider (e.g. Supabase). Connection pooling handled by the provider. Each container connects to its own database via connection string
 - **S3/R2 object storage** — shared media storage across all users. Media uploads go through the user's container, stored in a shared bucket with user-prefixed keys
 - **External LLM API** — Claude (default) or other provider. HTTP calls from within Next.js API routes. No local LLM process
 
@@ -355,10 +355,10 @@ The entire UI is built on a single primitive: the **column navigator**. There is
 
 | Device         | Default columns | Minimum | Maximum |
 | -------------- | --------------- | ------- | ------- |
-| Mobile phone   | 1               | 1       | 2       |
+| Mobile phone   | 1               | 1       | 1       |
 | Tablet (small) | 2               | 1       | 3       |
 | Tablet (large) | 3               | 1       | 4       |
-| Web (desktop)  | 2               | 1       | 4       |
+| Web (desktop)  | 2               | 1       | \*      |
 
 Column count is **user-configurable per device** via the Config Registry (via LLM: _"show me two columns on my phone"_). The device default is applied on first use only.
 
@@ -373,7 +373,7 @@ Every column is a **vertical scrolling feed** of cards, with the persistent inpu
 │                      │         │           │                  │
 │  [Card A]            │         │ [Card A]  │ [Message 1]      │
 │ ╔════════════╗       │         │╔═════════╗│ [Message 2]      │
-│ ║ [Card B]   ║ focus │  swipe  │║[Card B] ║│ [Message 3]      │
+│ ║[Card B]    ║ focus │  swipe  │║[Card B] ║│ [Message 3]      │
 │ ╚════════════╝       │ ──────▶ │╚═════════╝│                  │
 │  [Card C]            │  left   │ [Card C]  │                  │
 │                      │         │           │                  │
@@ -384,6 +384,10 @@ Every column is a **vertical scrolling feed** of cards, with the persistent inpu
 
 On a 1-column device, left-swipe replaces the current column entirely (the home feed slides off-screen left). Swiping right on the new column restores the home feed. Same physics, column count determines whether "replace" or "add" occurs.
 
+**Accessibility First**
+
+It is critical that the input bar be anchored at the bottom for all interaction because pointing by finger is a nightmare for precision, especially while you're old and can't see.
+
 #### One Card Always In Focus
 
 Across all columns, exactly **one card is in focus** at any time — the last card tapped or scrolled to. The input bar at the bottom of each column reflects the focused card in that column. When focus moves to a card in a different column, that column's input bar becomes active.
@@ -392,25 +396,21 @@ Across all columns, exactly **one card is in focus** at any time — the last ca
 
 ### 7.2 The Persistent Input Bar
 
-The input bar is the **only** interactive control in the entire UI. It is permanently anchored to the bottom of the screen, above the system keyboard.
+The input bar is ostensibly the **only** interactive control in the entire UI. It is permanently anchored to the bottom of the screen, above the system keyboard.
 
-**There are no buttons anywhere in the app.**
+**There are no buttons or other inputs anywhere in the app (ostensibly).**
 
 #### Context-Dependent Behaviour
 
 The bar's mode, placeholder text, and submit action are determined entirely by the **focused card** and **current pane.**
 
-| Pane state              | Focused card            | Placeholder                                   | Submit action     |
-| ----------------------- | ----------------------- | --------------------------------------------- | ----------------- |
-| Home feed               | Post from followed user | `Reply to @alice…`                            | ActivityPub reply |
-| Home feed               | DM thread               | `Reply…`                                      | DM reply          |
-| Home feed               | Own post or empty       | `What's on your mind?`                        | New post          |
-| Remote feed (left pane) | Remote post             | `Reply to @bob@remote.social…`                | Federated reply   |
-| AI pane (right pane)    | Any card                | `Ask about this, or say what you want to do…` | Sent to LLM       |
-
-#### Ambiguous Input Routing
-
-If a user's input in the home feed doesn't match a default action pattern, it is silently routed to the LLM service for interpretation. From the user's perspective, the system simply understood them.
+| Pane state               | Focused card            | Placeholder                                   | Submit action     |
+| ------------------------ | ----------------------- | --------------------------------------------- | ----------------- |
+| Home feed                | Post from followed user | `Reply to @alice…`                            | ActivityPub reply |
+| Home feed                | DM thread               | `Reply…`                                      | DM reply          |
+| Home feed                | Own post or empty       | `What's on your mind?`                        | New post          |
+| Remote feed (right pane) | Remote post             | `Reply to @bob@remote.social…`                | Federated reply   |
+| AI pane (left pane)      | Any card                | `Ask about this, or say what you want to do…` | Sent to LLM       |
 
 #### Mode Switching
 
@@ -420,7 +420,7 @@ Modes change **only** via gesture (swipe) or focus change. There is no button, i
 
 ### 7.3 Swipe Interactions — The Column Navigator in Action
 
-All navigation is expressed as horizontal swipes on cards. Left swipe opens a new column to the right. Right swipe closes the rightmost column and returns focus left. There are no other navigation gestures.
+All navigation is expressed as horizontal swipes on cards. Left swipe opens a new column to the right. Right swipe closes the rightmost column and returns focus left. There are no other navigation gestures (except for vertical scroll).
 
 #### Left Swipe → Opens New Column (Context-Dependent)
 
@@ -505,13 +505,13 @@ LLM Client:
 
 #### LLM Permissions
 
-| The LLM client **can**                                              | The LLM client **cannot**             |
-| ------------------------------------------------------------------- | ------------------------------------- |
-| Read entire Config Registry (in process memory)                     | Read or write PostgreSQL directly     |
-| Write scoped Config Registry keys                                   | Access another user's data            |
-| Dispatch ActivityPub activities on behalf of the authenticated user | Make arbitrary outbound network calls |
-| Return natural language responses                                   | Modify server infrastructure          |
-| Describe available actions for any card context                     |                                       |
+| The LLM client **can**                                              | The LLM client **cannot**         |
+| ------------------------------------------------------------------- | --------------------------------- |
+| Read entire Config Registry (in process memory)                     | Read or write PostgreSQL directly |
+| Write scoped Config Registry keys                                   | Access another user's data        |
+| Dispatch ActivityPub activities on behalf of the authenticated user | Make outbound network calls       |
+| Return natural language responses                                   | Modify server infrastructure      |
+| Describe available actions for any card context                     |                                   |
 
 ---
 
