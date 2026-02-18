@@ -2,9 +2,9 @@
 
 ## Lightweb Browser — ActivityPub Platform
 
-**Version:** 0.8 (Draft)
+**Version:** 0.10 (Draft)
 **Status:** 🟡 In Progress
-**Last Updated:** 2026-02-17
+**Last Updated:** 2026-02-18
 
 ---
 
@@ -14,7 +14,7 @@ A new social & business media platform where content is created and controlled b
 
 ### 1.1 Mission Statement
 
-To provide a simple and well-defined structure for communications which is conducive to accessibility mechanisms such as voice control and AR. Such structure not only relieves interface friction, but is inherently more secure and well integrated.
+To provide a simple and well-defined structure for communications which is conducive to accessibility mechanisms such as voice control and AR. Such structure not only relieves interface friction, but is inherently more secure and well integrated. To provide an internet safe for kids, safe for everyone.
 
 ### 1.2 Problem Statement
 
@@ -24,13 +24,13 @@ _Sending_ data through web browsers and most apps is uncontrolled and insecure.
 
 ### 1.3 Vision
 
-To lock down browser PUT/POST capability, effectively making it read only, by designing a simple & secure social & business communications protocol.
+To lock down browser PUT/POST capability, effectively making it read only, by designing a new alternate simple & secure social & business media / communciations browser interface.
 
 Lightweb Browser is a federated social platform built on ActivityPub, designed around three radical premises:
 
 1. **There are no unnecessary UI input components such as buttons and choosers and boxes.** Every interaction flows through a single persistent, context-aware input bar which at any time could be replaced with a voice input or sign language or future "keyboard".
 2. **Security is Deny by Default** Internet actions or UI changes must be explicitly allowed. Permissions evolve naturally over time.
-3. **Trust is structured.** The platform provides a structured model for circles of trust — between family members, colleagues, communities — built as Lightweb extension types that federate over ActivityPub transport. Further, quality of business objects are reputable over time based on a global review standard. Positive reviews inside circle of trust carry more weight.
+3. **Trust is structured.** The platform provides a structured model for circles of trust — between family members, colleagues, communities — built as Lightweb extension types that federate over ActivityPub transport. Further, quality of business objects are reputable over time based on reviews expressed via native ActivityStreams objects (`Like`, `Dislike`, `Note`). Positive reviews inside circle of trust carry more weight.
 
 ### 1.4 Design Philosophy
 
@@ -41,6 +41,14 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 - The system infers what the user means based on what card is in focus
 - When defaults are not enough, AI handles the remainder
 - Configuration is never the user's problem — it's the system's problem
+
+**"Layout is User-Controlled"**
+
+- The screen layout never changes without an explicit user gesture (swipe, scroll)
+- The LLM cannot rearrange columns or shift focus
+- Receiving a new message does not move or resize existing columns
+- Creating a new card does not auto-open a compose column
+- Only the user's physical gesture — swipe, tap, scroll — changes what they see
 
 **"Allowlist, Never Deny"**
 
@@ -92,29 +100,34 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 
 ### 4.1 In Scope (v1.0 Launch)
 
-- ✅ User registration and login (SSO only — Google and Facebook)
+- ✅ User registration and login (SSO only — Google and Apple)
 - ✅ Single-screen column navigator — 1 column on mobile by default, 2–3 on tablet; always user-configurable per device
 - ✅ Feed as unified inbox — all events (messages, replies, follows, trust requests) arrive as cards; no separate notifications
 - ✅ One card always in focus (default to latest); persistent context-aware input bar always visible
-- ✅ Left swipe → opens new column to the right (remote feed of swiped card, or chat thread, etc)
-- ✅ Right swipe → AI mode for swiped card (configuration, custom interactions)
+- ✅ Symmetric swipe — swipe any card left or right to open its detail view (remote feed, chat thread, etc.) as a new column in the direction of the swipe
+- ✅ AI-default input — input bar routes through LLM by default; switches to direct keyboard for chat threads and content creation
+- ✅ Content creation flow — LLM creates unsent draft cards in the feed; user composes via swipe-to-column or inline LLM dictation
 - ✅ **Chat-first messaging** — 1:1 and group chat, WhatsApp-equivalent, E2EE via MLS
 - ✅ **Federated DMs** — cross-implementation direct messaging via standard AP private `Note` objects; default-deny, configurable per account
-- ✅ **Conversation upgrade** — federated DMs automatically upgrade to encrypted `ChatMessage` + RCS when both parties mutually allowlist; unified chat thread UI with per-message encryption and RCS indicators
+- ✅ **Conversation upgrade** — federated DMs automatically upgrade to encrypted `ChatMessage` + RCS when both parties have mutual relationship tags satisfying the `encrypted_chat` permission rule; unified chat thread UI with per-message encryption and RCS indicators
 - ✅ `ChatMessage` object type — dedicated type, always encrypted, separate from `Note`
 - ✅ Group chat with host server model — creator's server is MLS Delivery Service
 - ✅ Automatic group host migration — oldest remaining member's server takes over
 - ✅ ActivityPub federation (inbox, outbox, followers, following, WebFinger)
 - ✅ Native iOS and Android apps
+- ✅ Meta Quest client (voice-first VR/AR — single controller, no visible text input by default)
 - ✅ Web client (Next.js shell embedding the shared mobile UI component)
 - ✅ Server-side LLM processor (Claude by default; swappable via config)
 - ✅ In-memory JSON configuration registry (single source of truth for all config)
 - ✅ Circle of Trust — account control model (open and controlled accounts)
 - ✅ TrustRequest / TrustGrant object types — permission escalation via ActivityPub
 - ✅ Allowlist permission model for all actions and config objects
+- ✅ Social relationship tags (`following`, `friend`, `close_friend`) with boolean permission rules (`any`/`all`)
+- ✅ Contact registry in Config Registry with aliases for LLM resolution
+- ✅ Friend request flow via TrustRequest; delegated permissions for controlled accounts
 - ✅ LightwebObject base type with typed extension system
-- ✅ Encryption defined per extension manifest — `ChatMessage`: required, `Note`: none
-- ✅ Review object type — 👍 / 👎 + blurb, applicable per object type
+- ✅ Encryption defined per extension manifest — `ChatMessage`: required, `Note`/`Article`: none
+- ✅ Reviews via native ActivityStreams objects — `Like` (👍), `Dislike` (👎), `Note` (blurb), applicable per object type
 - ✅ MLS (RFC 9420) E2EE for ChatMessage and TrustRequest objects
 - ✅ Hybrid key storage — client-side primary, encrypted server backup
 - ✅ Managed hosting — Lightweb Cloud, single-user-per-server (dedicated container per user, domain = identity)
@@ -128,7 +141,7 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 - ❌ Stories / ephemeral content
 - ❌ Monetization / creator tools
 - ❌ Admin moderation dashboard (manual DB tooling only at launch)
-- ❌ Comments (replaced by structured Review objects)
+- ❌ Comments (replaced by native `Like`/`Dislike`/`Note` review mechanism)
 - ❌ ECommerce tooling
 
 ---
@@ -145,7 +158,7 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 │                │  │  │                                            │   │
 │ iOS (RN/Expo) ─┼──┼─▶│  API Routes                                │   │
 │ Android (RN)  ─┼──┼─▶│  - REST API for all clients                │   │
-│ Web (browser) ─┼──┼─▶│  - Auth (JWT / OAuth2 — Google, Facebook)  │   │
+│ Web (browser) ─┼──┼─▶│  - Auth (JWT / OAuth2 — Google, Apple)     │   │
 │                │  │  │  - Rate limiting, input validation         │   │
 │ ── Solito ──   │  │  │                                            │   │
 │ shared UI +    │  │  │  ActivityPub Engine                        │   │
@@ -200,18 +213,19 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 
 ### 5.2 Technology Choices
 
-| Layer                   | Technology                              | Rationale                                                        |
-| ----------------------- | --------------------------------------- | ---------------------------------------------------------------- |
-| Mobile frontend         | **React Native** (via Expo)             | Native components on iOS & Android                               |
-| Unified server          | **Next.js 14+** (App Router)            | Single process: API routes, AP engine, LLM client, SSR web shell |
-| Code sharing            | **Solito** + **react-native-web**       | Shared UI components + navigation across RN and Next.js          |
-| Language                | **TypeScript** throughout               | Monorepo type safety end to end                                  |
-| Database                | **Managed PostgreSQL** (e.g. Supabase)  | Separate DB per user; connection pooling by provider             |
-| Cache / realtime        | **Redis** (local sidecar per container) | Feed caching, sessions, pub/sub for real-time chat               |
-| Object storage          | **S3-compatible** (e.g. Cloudflare R2)  | Shared media hosting across all users                            |
-| Monorepo tooling        | **Turborepo**                           | Shared packages, incremental builds                              |
-| Initial LLM provider    | **Claude (Anthropic)**                  | External API calls; swappable via config registry                |
-| Container orchestration | **Kubernetes** (GKE / GCP)              | One container per user; cluster-level scaling                    |
+| Layer                   | Technology                              | Rationale                                                         |
+| ----------------------- | --------------------------------------- | ----------------------------------------------------------------- |
+| Mobile frontend         | **React Native** (via Expo)             | Native components on iOS & Android                                |
+| Quest frontend          | **React Native** + OpenXR bridge        | Voice-first VR/AR client; shares `packages/ui`; single controller |
+| Unified server          | **Next.js 14+** (App Router)            | Single process: API routes, AP engine, LLM client, SSR web shell  |
+| Code sharing            | **Solito** + **react-native-web**       | Shared UI components + navigation across RN and Next.js           |
+| Language                | **TypeScript** throughout               | Monorepo type safety end to end                                   |
+| Database                | **Managed PostgreSQL** (e.g. Supabase)  | Separate DB per user; connection pooling by provider              |
+| Cache / realtime        | **Redis** (local sidecar per container) | Feed caching, sessions, pub/sub for real-time chat                |
+| Object storage          | **S3-compatible** (e.g. Cloudflare R2)  | Shared media hosting across all users                             |
+| Monorepo tooling        | **Turborepo**                           | Shared packages, incremental builds                               |
+| Initial LLM provider    | **Claude (Anthropic)**                  | External API calls; swappable via config registry                 |
+| Container orchestration | **Kubernetes** (GKE / GCP)              | One container per user; cluster-level scaling                     |
 
 ### 5.3 Web Client Strategy
 
@@ -233,7 +247,69 @@ This is a thin interactive layer, not a full client-side application. The same R
 
 > 📌 The web experience intentionally looks and feels like a mobile app running in a browser — this is by design, not a limitation.
 
-### 5.4 Single-User-Per-Server Model
+### 5.4 Meta Quest Client — Voice-First VR/AR
+
+The Meta Quest client is a **voice-first** adaptation of the Lightweb column navigator. It reuses the shared UI component layer but replaces the persistent text input bar with voice input as the primary interaction mode. Only one Quest controller is needed.
+
+#### Controller Mapping
+
+| Controller input   | Action         | Notes                                                                                                                                      |
+| ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Joystick**       | Swipe & scroll | Up/down scrolls the feed vertically; left/right performs symmetric swipe navigation — direction determines column placement (same as §7.3) |
+| **Trigger (hold)** | Voice input    | Press and hold to speak; release to submit. Equivalent to typing in the input bar — LLM or direct depending on active column type          |
+
+#### Key Differences from Mobile/Web
+
+- **No visible text input bar by default.** The input bar is hidden; all user intent is expressed via voice while holding the trigger. The input bar can be summoned via voice command (_"show keyboard"_) or via LLM for cases requiring precise text entry (URLs, passwords), at which point a virtual keyboard appears
+- **Single controller only.** The entire interaction model — scrolling, swiping, and speaking — is operable with one hand on one controller
+- **Focus follows gaze + joystick.** Card focus is determined by a combination of head gaze and joystick position, replacing tap-to-focus
+- **Voice is contextual.** The same context-dependent behaviour from §7.2 applies — what the voice input does depends on the focused card and active column type. Holding the trigger on a chat thread and saying "sounds good" sends a direct reply; holding the trigger on the home feed with a card focused and saying "unfollow" routes through the LLM to dispatch the action
+
+#### Voice Input Flow
+
+```
+User holds trigger
+       │
+       ▼
+Audio captured → streamed to server (WebSocket)
+       │
+       ▼
+Server-side speech-to-text (provider-abstracted)
+       │
+       ▼
+Transcribed text processed identically to typed input bar submission
+  - Same focused card context
+  - Same active column type routing (LLM vs direct, per §7.2)
+       │
+       ▼
+Response rendered as card / chat bubble + optional TTS playback
+```
+
+#### Speech Provider Abstraction
+
+Speech-to-text follows the same provider pattern as §5.8 (Provider Abstractions):
+
+```typescript
+// Speech — voice input transcription
+interface SpeechProvider {
+  transcribe(audioStream: ReadableStream): Promise<string>;
+}
+// Registered: WhisperProvider | DeepgramProvider | QuestNativeProvider
+// Active: config.speech.provider
+```
+
+#### Platform Integration
+
+- Built with **React Native** via the Quest fork / react-native-openxr bridge, sharing the `packages/ui` component layer
+- Column navigator renders as a curved panel in 3D space — same column model, spatially arranged
+- Swipe animations map to joystick-driven panel transitions
+- Audio capture uses the Quest's built-in microphone array
+
+> 📌 The Quest client proves the core design thesis: because all interaction flows through one input mechanism (the input bar), swapping text for voice requires no architectural changes — only an input adapter.
+
+---
+
+### 5.5 Single-User-Per-Server Model
 
 Every Lightweb user gets a **dedicated container** — one user, one server, one domain. The user's domain _is_ their identity (e.g. `@alice@alice.lightweb.cloud`).
 
@@ -246,7 +322,7 @@ Every Lightweb user gets a **dedicated container** — one user, one server, one
 
 **WebFinger** (RFC 7033) is still required for federation interop — other AP servers expect to resolve `@user@domain` via `/.well-known/webfinger`. In a single-user-per-server model this is trivially implemented (always returns the one user) but must exist for other servers to discover and follow this actor.
 
-### 5.5 Consolidated Single-Process Architecture
+### 5.6 Consolidated Single-Process Architecture
 
 All server-side functionality runs in a **single Next.js process** per container. There are no separate microservices.
 
@@ -262,7 +338,7 @@ All server-side functionality runs in a **single Next.js process** per container
 
 **Why not microservices:** With one user per container, there is no concurrency benefit from splitting services. A single process eliminates inter-process communication overhead, simplifies deployment, and reduces memory footprint (~100–150 MB total per container vs ~300+ MB for three separate Node.js processes).
 
-### 5.6 Infrastructure Split — Per-Container vs Shared
+### 5.7 Infrastructure Split — Per-Container vs Shared
 
 Each user container runs locally:
 
@@ -278,7 +354,7 @@ Shared infrastructure (managed, external to containers):
 
 **Container capacity estimate:** On a 3-node GCP cluster (e2-medium, 4 GB RAM each, ~$75/month total), approximately 65–80 idle containers fit comfortably. Active containers with traffic consume more, so real-world capacity depends on usage patterns.
 
-### 5.7 Provider Abstractions
+### 5.8 Provider Abstractions
 
 All infrastructure dependencies are accessed through provider interfaces, configured via the Config Registry. Active providers are resolved at startup. Switching any provider requires only a config change and restart — no code changes.
 
@@ -332,8 +408,11 @@ interface QueueProvider {
 
 ### 6.2 Activity Types (v1.0)
 
-- `Create` (Note) — public posts and federated DMs (private `Note` with restricted addressing)
-- `Create` (ChatMessage) — E2EE chat messages (Lightweb-to-Lightweb, mutual allowlist required)
+- `Create` (Note) — status updates and federated DMs (private `Note` with restricted addressing)
+- `Create` (Article) — long-form posts (plain text only, no HTML)
+- `Create` (ChatMessage) — E2EE chat messages (Lightweb-to-Lightweb, mutual relationship tags required)
+- `Create` (TrustRequest) — permission escalation and friend requests (always E2EE via MLS)
+- `Create` (TrustGrant) — permission approval and friend acceptance (always E2EE via MLS)
 - `Follow` / `Accept` / `Reject`
 - `Like`
 - `Announce` — boosts / reposts
@@ -352,7 +431,7 @@ interface QueueProvider {
 
 ### 7.1 Feed UI — Column Navigator Model
 
-The entire UI is built on a single primitive: the **column navigator**. There is one screen. It contains one or more columns. Every navigation action adds a column to the right and optionally compresses or removes columns to the left. There are no pages, no modals, no navigation stack in the traditional sense.
+The entire UI is built on a single primitive: the **column navigator**. There is one screen. It contains one or more columns. Swiping a card opens its detail view as a new column **in the direction of the swipe** — swipe right and the column opens to the right; swipe left and it opens to the left. Both directions perform the same action (drill into the card); the direction only determines column placement. There are no pages, no modals, no navigation stack in the traditional sense.
 
 #### Column Count — Device Defaults & User Configuration
 
@@ -367,10 +446,10 @@ Column count is **user-configurable per device** via the Config Registry (via LL
 
 #### What a Column Is
 
-Every column is a **vertical scrolling feed** of cards, with the persistent input bar anchored at the bottom. The leftmost column is always the home feed. Additional columns open to the right on left-swipe, each representing a different context (remote feed, chat thread, AI conversation, etc.).
+Every column is a **vertical scrolling feed** of cards, with the persistent input bar anchored at the bottom. The leftmost column is always the home feed by default. Additional columns open in the direction of the swipe, each representing a different context (remote feed, chat thread, etc.).
 
 ```
-1 COLUMN (mobile default)        2 COLUMNS (tablet / after swipe)
+1 COLUMN (mobile default)        2 COLUMNS (after right-swipe on Card B)
 ┌──────────────────────┐         ┌───────────┬──────────────────┐
 │  HOME FEED           │         │ HOME FEED │ CHAT / REMOTE    │
 │                      │         │           │                  │
@@ -378,14 +457,14 @@ Every column is a **vertical scrolling feed** of cards, with the persistent inpu
 │ ╔════════════╗       │         │╔═════════╗│ [Message 2]      │
 │ ║[Card B]    ║ focus │  swipe  │║[Card B] ║│ [Message 3]      │
 │ ╚════════════╝       │ ──────▶ │╚═════════╝│                  │
-│  [Card C]            │  left   │ [Card C]  │                  │
+│  [Card C]            │  right  │ [Card C]  │                  │
 │                      │         │           │                  │
 ├──────────────────────┤         ├───────────┼──────────────────┤
-│  [Reply to @alice…]  │         │[Reply…  ] │ [Type a message] │
+│  [Ask anything…    ] │         │[Ask…    ] │ [Type a message] │
 └──────────────────────┘         └───────────┴──────────────────┘
 ```
 
-On a 1-column device, left-swipe replaces the current column entirely (the home feed slides off-screen left). Swiping right on the new column restores the home feed. Same physics, column count determines whether "replace" or "add" occurs.
+On a 1-column device, swiping replaces the current column entirely — the home feed slides off-screen in the opposite direction of the swipe, and the detail view takes over full screen. Swiping back in the opposite direction restores the home feed. On multi-column devices, the new column is added in the swipe direction; existing columns compress to make room.
 
 **Accessibility First**
 
@@ -403,77 +482,83 @@ The input bar is ostensibly the **only** interactive control in the entire UI. I
 
 **There are no buttons or other inputs anywhere in the app (ostensibly).**
 
-#### Context-Dependent Behaviour
+#### Input Mode — Determined by Object Type
 
-The bar's mode, placeholder text, and submit action are determined entirely by the **focused card** and **current pane.**
+The input bar operates in one of two modes: **LLM** (input is sent to the server-side LLM for interpretation) or **Direct** (input is sent as-is, like a keyboard). The mode is determined by the **type of content in the active column**, not by a user-toggled setting or swipe direction.
 
-| Pane state               | Focused card                 | Placeholder                                   | Submit action                  |
-| ------------------------ | ---------------------------- | --------------------------------------------- | ------------------------------ |
-| Home feed                | Post from followed user      | `Reply to @alice…`                            | ActivityPub reply              |
-| Home feed                | Chat thread (federated) 🔓   | `Reply…`                                      | Federated DM (private `Note`)  |
-| Home feed                | Chat thread (encrypted) 🔒📡 | `Reply…`                                      | Encrypted chat (`ChatMessage`) |
-| Home feed                | Own post or empty            | `What's on your mind?`                        | New post                       |
-| Remote feed (right pane) | Remote post                  | `Reply to @bob@remote.social…`                | Federated reply                |
-| AI pane (left pane)      | Any card                     | `Ask about this, or say what you want to do…` | Sent to LLM                    |
+| Active column content                           | Input mode | Placeholder            | Behaviour                                                     |
+| ----------------------------------------------- | ---------- | ---------------------- | ------------------------------------------------------------- |
+| Home feed — card in focus                       | **LLM**    | `Ask anything…`        | LLM receives input + focused card context; dispatches actions |
+| Home feed — no card in focus                    | **LLM**    | `Ask anything…`        | LLM receives input as general request (e.g. "text steve")     |
+| Chat thread (`OrderedCollection<ChatMessage>`)  | **Direct** | `Type a message…`      | Keystrokes sent as chat message (encrypted or federated)      |
+| Draft card in compose column                    | **Direct** | `Write your post…`     | Keystrokes compose the draft content directly                 |
+| Remote feed (`OrderedCollection<Note/Article>`) | **LLM**    | `Ask about this feed…` | LLM receives input + feed/card context; dispatches actions    |
+| Trust context view                              | **LLM**    | `Ask anything…`        | LLM receives input + trust request context                    |
+
+**The rule is simple:** if the active view is a chat thread or a content draft, you're typing directly. Everything else routes through the LLM.
 
 #### Mode Switching
 
-Modes change **only** via gesture (swipe) or focus change. There is no button, icon, or control to change the input mode. The user never thinks about modes — they only think about what card they're looking at.
+Modes change **only** via gesture (swipe) or focus change. There is no button, icon, or control to change the input mode. The user never thinks about modes — they only think about what card they're looking at and what column they're in.
 
 ---
 
 ### 7.3 Swipe Interactions — The Column Navigator in Action
 
-All navigation is expressed as horizontal swipes on cards. Left swipe opens a new column to the right. Right swipe closes the rightmost column and returns focus left. There are no other navigation gestures (except for vertical scroll).
+All navigation is expressed as horizontal swipes on cards. **Both left and right swipes perform the same action** — drill into the swiped card's detail view — but the new column opens **in the direction of the swipe.** Swipe right and the detail column appears to the right; swipe left and it appears to the left. There are no other navigation gestures (except for vertical scroll).
 
-#### Left Swipe → Opens New Column (Context-Dependent)
+#### Swipe (Either Direction) → Opens Detail Column (Context-Dependent)
 
 The content of the new column depends on the **type of the swiped card:**
 
-| Swiped card type                    | New column content                                         |
-| ----------------------------------- | ---------------------------------------------------------- |
-| `Note` from remote server           | Origin server's public feed, card in chronological context |
-| `ChatMessage` (incoming message)    | Full E2EE chat thread with that contact or group           |
-| `TrustRequest`                      | Trust context for that request                             |
-| Follow / activity notification card | That actor's feed                                          |
+| Swiped card type                      | New column content                                         |
+| ------------------------------------- | ---------------------------------------------------------- |
+| `Note` / `Article` from remote server | Origin server's public feed, card in chronological context |
+| `ChatMessage` (incoming message)      | Full E2EE chat thread with that contact or group           |
+| `TrustRequest`                        | Trust context for that request                             |
+| Follow / activity notification card   | That actor's feed                                          |
+| Draft card (unsent)                   | Compose view for that draft                                |
 
-On a 1-column device (mobile default), the new content **replaces** the current column — the home feed slides fully off-screen left and the new content is full screen. Swipe right to return. On a 2+ column device, the new content opens as a new right column; existing columns compress left.
+On a 1-column device (mobile default), the new content **replaces** the current column — the home feed slides off-screen in the opposite direction and the detail view takes over full screen. Swiping back in the opposite direction restores the home feed. On a 2+ column device, the new column is added in the swipe direction; existing columns compress to make room.
 
-#### Right Swipe → AI Mode Column (Context Dependent)
+**Why symmetric swipe?** Users can arrange their workspace however they prefer. Swipe a chat right to open it beside the feed, or swipe it left to open it on the other side. On multi-column devices this gives spatial flexibility — the user controls the layout, not the system.
 
-Right swipe on any focused card opens the AI pane as a new column to the right. The full ActivityPub object of the swiped card is injected into the LLM context. Input bar becomes the AI chat interface.
+#### AI Without a Mode — LLM as Default Input
 
-**Example AI interactions:**
+There is no dedicated "AI mode" or "AI pane." The LLM is the **default input handler** on the home feed and any non-chat detail column. Users interact with the LLM simply by typing (or speaking) while a card is in focus.
 
-- `"Unfollow"` → LLM dispatches `Undo Follow` activity
-- `"Block this server"` → LLM updates Config Registry domain blocklist
-- `"Translate this"` → LLM returns translated text inline
-- `"What can I do here?"` → LLM describes available actions in plain language
-- `"Mute words like this"` → LLM updates muted keywords in Config Registry
-- `"Change my bio to…"` → LLM updates user profile via API
+**Example LLM interactions from the home feed:**
+
+- `"Unfollow"` (card focused) → LLM dispatches `Undo Follow` activity
+- `"Block this server"` (card focused) → LLM updates Config Registry domain blocklist
+- `"Translate this"` (card focused) → LLM returns translated text inline
+- `"What can I do here?"` (card focused) → LLM describes available actions in plain language
+- `"Mute words like this"` (card focused) → LLM updates muted keywords in Config Registry
+- `"Change my bio to…"` (no card focused) → LLM updates user profile via API
+- `"Text steve"` (no card focused) → LLM resolves contact, opens chat
 
 #### The Home Feed as Unified Inbox
 
-The home feed is the **single inbox for all events** — messages, posts, follow notifications, trust requests, reviews. There are no separate notification screens, badge counts, or inbox/feed distinctions.
+The home feed is the **single inbox for all events** — messages, status updates, articles, follow notifications, trust requests, likes, dislikes. There are no separate notification screens, badge counts, or inbox/feed distinctions.
 
 ```
 HOME FEED — unified inbox (newest at bottom)
 ┌─────────────────────────────────────┐
-│  📣 @bob posted: "Check this out"   │  ← Note  — swipe left → remote feed
+│  📣 @bob: "Check this out"           │  ← Note  — swipe → remote feed
 │                                     │
-│  🔔 @carol followed you             │  ← Follow — swipe left → @carol's feed
+│  🔔 @carol followed you             │  ← Follow — swipe → @carol's feed
 │                                     │
-│  🔒 Trust request from @child       │  ← TrustRequest — swipe left → trust view
+│  🔒 Trust request from @child       │  ← TrustRequest — swipe → trust view
 │                                     │
 │ ╔═════════════════════════════════╗ │
 │ ║ 💬 @alice: hey are you free?    ║ │  ← ChatMessage card — focused
-│ ╚═════════════════════════════════╝ │    swipe left → opens full chat thread
+│ ╚═════════════════════════════════╝ │    swipe → opens full chat thread
 ├─────────────────────────────────────┤
-│  Reply to @alice…           [Send]  │  ← Input bar reflects focused card
+│  Ask anything…              [Send]  │  ← Input bar: LLM mode (card in focus)
 └─────────────────────────────────────┘
 ```
 
-The input bar never moves, it's function just changes based on context.
+The input bar never moves. Its mode (LLM or direct) changes based on the object type of the active column (see §7.2).
 
 #### Swipe Mechanics
 
@@ -485,14 +570,56 @@ The input bar never moves, it's function just changes based on context.
 
 ---
 
-### 7.4 LLM Client
+### 7.4 Content Creation Flow
+
+Content creation is initiated through the LLM and completed either inline or in a dedicated compose column. The system never auto-opens a compose view — the user controls when and whether to expand the draft (see "Layout is User-Controlled" in §1.4).
+
+#### Creation Sequence
+
+```
+Home feed, LLM mode, user types: "tweet"
+       │
+       ▼
+LLM creates a new DRAFT card at the bottom of the feed
+  - Type: Note (or Article, depending on LLM interpretation)
+  - Status: unsent, unedited
+  - Card is automatically in focus
+  - Layout does NOT change — still on home feed
+       │
+       ▼
+User has two paths:
+       │
+       ├──▶ SWIPE the draft card → opens compose column
+       │      Input bar switches to DIRECT mode
+       │      User types content with keyboard
+       │      "Send" / "Post" submits the draft
+       │
+       └──▶ STAY on home feed → continue talking to LLM
+              "Make it about the weather" → LLM fills in content
+              "Add a photo" → LLM attaches media
+              "Post it" → LLM publishes the draft
+```
+
+#### Draft Card States
+
+| State       | Visual indicator            | Input bar (if swiped to column) | Input bar (if on home feed) |
+| ----------- | --------------------------- | ------------------------------- | --------------------------- |
+| **Empty**   | Blank card, cursor blinking | `Write your post…` (Direct)     | `Ask anything…` (LLM)       |
+| **Drafted** | Content preview visible     | Direct editing                  | LLM can revise on request   |
+| **Sent**    | Normal card appearance      | N/A (no longer a draft)         | N/A                         |
+
+Draft cards are **local-only** until explicitly published. They are not federated, not visible to anyone else, and can be discarded at any time ("delete that draft" via LLM, or swipe-to-dismiss TBD).
+
+---
+
+### 7.5 LLM Client
 
 The LLM client is **server-side only** — an HTTP client within the Next.js process that calls an external LLM API. The client never calls an LLM provider directly.
 
 #### Request Flow
 
 ```
-Client sends: { userInput, focusedCardId, paneState, conversationHistory }
+Client sends: { userInput, focusedCardId, activeColumnType, conversationHistory }
        │
        ▼
 Next.js API route validates + enriches with full card ActivityPub object
@@ -519,26 +646,26 @@ LLM Client:
 
 ---
 
-### 7.5 Chat — 1:1 and Group Messaging
+### 7.6 Chat — 1:1 and Group Messaging
 
 Chat is a **first-class, primary feature** of Lightweb Browser v1 — equivalent in importance to the social feed. Lightweb supports two distinct wire formats for direct messaging — **federated DMs** (standard ActivityPub private `Note` objects) and **encrypted chat** (`ChatMessage` objects over MLS) — presented in a **single unified chat thread** in the UI.
 
 #### Two Wire Types, One Thread
 
-|                   | Federated DM                                         | Encrypted Chat                                    |
-| ----------------- | ---------------------------------------------------- | ------------------------------------------------- |
-| **Wire type**     | `Note` (private addressing)                          | `ChatMessage` (Lightweb custom)                   |
-| **AP compatible** | All implementations                                  | Lightweb (+ future MLS-capable servers)           |
-| **Encryption**    | None (standard AP transport)                         | Always E2EE (MLS)                                 |
-| **RCS features**  | None (typing, read receipts, presence unavailable)   | Full (typing indicators, read receipts, presence) |
-| **Delivery**      | AP inbox (polling)                                   | WebSocket real-time + 5s fallback                 |
-| **Requires**      | `messaging.allow_insecure_dm` or sender on allowlist | Mutual allowlist (both parties friend each other) |
+|                   | Federated DM                                                                             | Encrypted Chat                                                                |
+| ----------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **Wire type**     | `Note` (private addressing)                                                              | `ChatMessage` (Lightweb custom)                                               |
+| **AP compatible** | All implementations                                                                      | Lightweb (+ future MLS-capable servers)                                       |
+| **Encryption**    | None (standard AP transport)                                                             | Always E2EE (MLS)                                                             |
+| **RCS features**  | None (typing, read receipts, presence unavailable)                                       | Full (typing indicators, read receipts, presence)                             |
+| **Delivery**      | AP inbox (polling)                                                                       | WebSocket real-time + 5s fallback                                             |
+| **Requires**      | `messaging.allow_insecure_dm` or sender matches `insecure_dm` permission rule (see §8.8) | Mutual relationship tags matching `encrypted_chat` permission rule (see §8.8) |
 
 Both types are rendered in the **same chat thread column** — the user sees one conversation, not two. Per-message indicators show encryption and RCS status.
 
 #### Conversation Lifecycle — The Upgrade Path
 
-Every 1:1 conversation follows a state machine driven by the mutual allowlist state of the two parties:
+Every 1:1 conversation follows a state machine driven by the mutual relationship tag state of the two parties:
 
 ```
 CONVERSATION STATES (per contact pair)
@@ -550,13 +677,16 @@ CONVERSATION STATES (per contact pair)
   │  Encryption: ❌ None (standard AP)                  │
   │  RCS: ❌ Not available                              │
   │  Requires: config allows insecure DMs, OR           │
-  │            sender is on recipient's allowlist        │
+  │            sender matches insecure_dm permission    │
+  │            rule (see §8.8)                          │
   │  Works with: any AP server (Mastodon, Pleroma, etc) │
   └──────────────────────┬──────────────────────────────┘
                          │
-                    both parties
-                  mutually allowlist
-                    (friend each other)
+                  both parties mutually
+                  tagged such that
+                  encrypted_chat permission
+                  rule evaluates to true
+                  (e.g. mutual "friend" tag)
                          │
                          ▼
   ┌─────────────────────────────────────────────────────┐
@@ -565,13 +695,13 @@ CONVERSATION STATES (per contact pair)
   │  Encryption: ✅ Always (MLS)                        │
   │  RCS: ✅ Active (typing, read receipts, presence)   │
   │  Requires: both parties on Lightweb (or MLS-capable)│
-  │  MLS group created automatically on mutual allowlist│
+  │  MLS group created on mutual encrypted_chat match   │
   └─────────────────────────────────────────────────────┘
 ```
 
-The upgrade is **per-relationship, not per-message.** Once both sides allowlist each other, the MLS group is established and all future messages use `ChatMessage`. Historical federated DM `Note` objects remain visible in the thread but are permanently marked as unencrypted.
+The upgrade is **per-relationship, not per-message.** Once both sides have relationship tags that satisfy the `encrypted_chat` permission rule (e.g. mutual `friend` tag), the MLS group is established and all future messages use `ChatMessage`. Historical federated DM `Note` objects remain visible in the thread but are permanently marked as unencrypted.
 
-**Upgrade trigger:** When the second party adds the first to their allowlist (making it mutual):
+**Upgrade trigger:** When the second party accepts a friend request (creating mutual tags that satisfy the `encrypted_chat` permission rule):
 
 1. Initiating server creates an MLS group `[alice, bob]`
 2. Sends MLS Welcome message to the other party's server
@@ -580,17 +710,17 @@ The upgrade is **per-relationship, not per-message.** Once both sides allowlist 
 5. WebSocket channel established — RCS features activate
 6. All future messages in this thread are `ChatMessage`
 
-The upgrade is **irreversible** — removing a contact from the allowlist ends the conversation, it does not downgrade it back to federated DM.
+The upgrade is **irreversible** — removing the relationship tag that enabled encryption ends the conversation, it does not downgrade it back to federated DM.
 
 **Federated DM acceptance rules:**
 
-| `messaging.allow_insecure_dm` | Sender on allowlist? | Result                              |
-| ----------------------------- | -------------------- | ----------------------------------- |
-| `false`                       | No                   | DM silently rejected (default-deny) |
-| `false`                       | Yes (one-way)        | DM accepted as federated `Note`     |
-| `true`                        | No                   | DM accepted as federated `Note`     |
-| `true`                        | Yes (one-way)        | DM accepted as federated `Note`     |
-| either                        | Yes (mutual)         | Upgrade to `ChatMessage` + MLS      |
+| `messaging.allow_insecure_dm` | Sender matches `insecure_dm` rule? | Mutual `encrypted_chat` match? | Result                              |
+| ----------------------------- | ---------------------------------- | ------------------------------ | ----------------------------------- |
+| `false`                       | No                                 | No                             | DM silently rejected (default-deny) |
+| `false`                       | Yes                                | No                             | DM accepted as federated `Note`     |
+| `true`                        | No                                 | No                             | DM accepted as federated `Note`     |
+| `true`                        | Yes                                | No                             | DM accepted as federated `Note`     |
+| either                        | either                             | Yes                            | Upgrade to `ChatMessage` + MLS      |
 
 #### The ChatMessage Object Type
 
@@ -644,11 +774,12 @@ When a private `Note` arrives at the AP inbox (a `Note` addressed to only this a
 Incoming private Note
         │
         ▼
-  ┌─────────────────────────┐
-  │ Is insecure DM allowed  │
-  │ for this sender?        │──── No ───▶ Silently reject
-  │ (config or allowlist)   │
-  └──────── Yes ────────────┘
+  ┌──────────────────────────────┐
+  │ Is insecure DM allowed       │
+  │ for this sender?             │──── No ───▶ Silently reject
+  │ (config flag OR sender       │
+  │  matches insecure_dm rule)   │
+  └──────── Yes ─────────────────┘
         │
         ▼
   ┌─────────────────────────┐
@@ -658,10 +789,11 @@ Incoming private Note
   └─────────────────────────┘
         │
         ▼
-  ┌─────────────────────────┐
-  │ Is mutual allowlist     │
-  │ now established?        │──── Yes ───▶ Create MLS group, upgrade
-  └──────── No ─────────────┘              conversation, notify both
+  ┌──────────────────────────────┐
+  │ Do both parties have mutual  │
+  │ tags matching encrypted_chat │
+  │ permission rule?             │──── Yes ───▶ Create MLS group, upgrade
+  └──────── No ──────────────────┘              conversation, notify both
         │
         ▼
   Store Note in Conversation
@@ -678,7 +810,7 @@ Incoming messages — both federated DMs (`Note`) and encrypted chat (`ChatMessa
 
 Chat cards display a small indicator: 🔓 for unencrypted federated DMs, 🔒 for E2EE messages.
 
-Tapping or focusing a chat card and swiping left opens the **full chat thread** as a new column. On mobile (1-column), this is full screen. On tablet/web, it opens as the right column.
+Tapping or focusing a chat card and swiping it (in either direction) opens the **full chat thread** as a new column in the direction of the swipe. On mobile (1-column), this replaces the feed full screen. On tablet/web, it opens as an adjacent column.
 
 #### Chat Thread Column — Unified View with Indicators
 
@@ -690,7 +822,7 @@ CHAT THREAD — @bob@mastodon.social
 │  Hey, saw your post about MLS     🔓    │  ← Note (federated DM)
 │                          Thanks!  🔓    │  ← Note (federated DM)
 │                                         │
-│  ── @bob added you as a friend ──       │  ← system: mutual allowlist
+│  ── @bob added you as a friend ──       │  ← system: mutual friend tag
 │  ── 🔒 Messages are now encrypted ──   │
 │  ── 📡 Real-time chat active ──        │
 │                                         │
@@ -714,10 +846,10 @@ CHAT THREAD — @bob@mastodon.social
 
 **Indicator combinations in practice:**
 
-| Conversation mode | E2EE | RCS | Notes                                          |
-| ----------------- | ---- | --- | ---------------------------------------------- |
-| Federated         | ❌   | ❌  | Standard AP DM — any implementation            |
-| Encrypted         | ✅   | ✅  | Mutual allowlist — ChatMessage always has both |
+| Conversation mode | E2EE | RCS | Notes                                                  |
+| ----------------- | ---- | --- | ------------------------------------------------------ |
+| Federated         | ❌   | ❌  | Standard AP DM — any implementation                    |
+| Encrypted         | ✅   | ✅  | Mutual relationship tags — ChatMessage always has both |
 
 RCS requires `ChatMessage`, and `ChatMessage` is always E2EE, so RCS is always encrypted. The indicators are shown independently to communicate _why_ — users understand real-time chat requires mutual trust.
 
@@ -741,7 +873,7 @@ If the host server goes offline, the **oldest remaining member's server** automa
 
 **Group membership changes:**
 
-- Adding a member: any existing member can add (subject to their Circle of Trust allowlist)
+- Adding a member: any existing member can add (subject to their Circle of Trust relationship tags)
 - Removing a member: any member can remove themselves; group admin can remove others
 - Every membership change triggers an MLS commit and key rotation — past messages remain inaccessible to removed members (forward secrecy)
 
@@ -749,18 +881,19 @@ If the host server goes offline, the **oldest remaining member's server** automa
 
 No buttons. The user focuses any card from another user and types a message in the input bar. The LLM infers intent and creates a new conversation if one doesn't exist, or routes to the existing thread if it does. The user never thinks about "creating a conversation."
 
-If the recipient is on a remote non-Lightweb server, the message is sent as a federated DM (`Note` with private addressing). If the recipient is on Lightweb and mutual allowlist exists, it goes as `ChatMessage`. The user doesn't choose — the system selects the best available transport.
+If the recipient is on a remote non-Lightweb server, the message is sent as a federated DM (`Note` with private addressing). If the recipient is on Lightweb and mutual relationship tags satisfy the `encrypted_chat` permission rule, it goes as `ChatMessage`. The user doesn't choose — the system selects the best available transport.
 
 ---
 
-### 7.6 User Profiles & Auth
+### 7.7 User Profiles & Auth
 
 - Username format: `@user@yourdomain.com`
 - Profile fields: display name, bio, avatar, header image, up to 4 custom fields
-- **Auth: SSO only — Google and Facebook OAuth2. Zero password management.**
+- **Auth: SSO only — Google and Apple OAuth2. Zero password management.**
   - Account auto-provisioned from SSO identity on first login
   - No email/password fallback; no password reset flows
   - Store only the OAuth2 subject ID + provider, never credentials
+  - SSO provider selection is the cloud provider's responsibility — additional providers (e.g. Facebook) may be offered by the hosting platform but are not part of the Lightweb app spec
 - JWT sessions with refresh token rotation (expiry configurable via Config Registry)
 
 ---
@@ -797,10 +930,10 @@ Open Account                    Controlled Account
 
 ### 8.3 The TrustRequest Object
 
-When a controlled account attempts an action not on their allowlist, the system does not show an error. Instead it creates a `TrustRequest` — a native ActivityPub object that travels to the controller's feed as a card.
+When a controlled account attempts an action not on their allowlist, the system does not show an error. Instead it creates a `TrustRequest` — a native ActivityPub object that travels to the controller's feed as a card. TrustRequests are also used for **friend requests** between any accounts (open or controlled) — see §8.8 for the full friend request flow.
 
 ```jsonc
-// LightwWeb extension: TrustRequest
+// LightwWeb extension: TrustRequest — permission escalation (controlled account)
 {
   "@context": [
     "https://www.w3.org/ns/activitystreams",
@@ -825,19 +958,40 @@ When a controlled account attempts an action not on their allowlist, the system 
 }
 ```
 
+```jsonc
+// LightwWeb extension: TrustRequest — friend request (any account)
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://lightwebbrowser.org/ns",
+  ],
+  "type": "TrustRequest",
+  "id": "https://alice.lightweb.cloud/trust-requests/def456",
+  "actor": "https://alice.lightweb.cloud/users/alice", // requesting account
+  "target": "https://bob.lightweb.cloud/users/bob", // recipient (not a controller)
+  "requestedAction": {
+    "type": "AddRelationshipTag",
+    "tag": "friend", // which relationship tag is being requested
+  },
+  "scope": "persistent",
+  "message": "I'd like to add you as a friend",
+  "status": "pending",
+}
+```
+
 **TrustRequest scopes:**
 
-| Scope          | Meaning                                                                 | Config change             |
-| -------------- | ----------------------------------------------------------------------- | ------------------------- |
-| `once`         | Approve viewing this specific post only                                 | None                      |
-| `content-only` | Allow future content from this account visible in feed (without follow) | Adds to content allowlist |
-| `persistent`   | Full follow permission granted                                          | Adds to follow allowlist  |
+| Scope          | Meaning                                                                 | Config change                                    |
+| -------------- | ----------------------------------------------------------------------- | ------------------------------------------------ |
+| `once`         | Approve viewing this specific post only                                 | None                                             |
+| `content-only` | Allow future content from this account visible in feed (without follow) | Adds to content filter allowlist                 |
+| `persistent`   | Full permission granted (follow, friendship, etc.)                      | Adds/updates contact in `social.contacts` config |
 
-The LLM resolves the child's natural language request (_"ask my dad if I can see this"_) to the most conservative applicable scope, unless context suggests otherwise.
+The LLM resolves the child's natural language request (_"ask my dad if I can see this"_) to the most conservative applicable scope, unless context suggests otherwise. Note that "my dad" indicates the destination, and also importantly, "my dad" must exist in the config registry as an alias in `social.contacts` mapped to a specific actor URI.
 
 ### 8.4 Approval Flow on the Controller's Feed
 
-The `TrustRequest` arrives as a card in the controller's (parent's) feed. The card is in focus. The input bar default action is **Approve** — so the controller just hits send. Denial requires entering AI mode (right swipe) and providing a reason, which is delivered back to the child's feed as a message.
+The `TrustRequest` arrives as a card in the controller's (parent's) feed. The card is in focus. The input bar default action is **Approve** — so the controller just hits send. Denial is handled via the LLM: with the trust request card in focus, the controller types a reason (e.g. "no, they post inappropriate content") and the LLM dispatches the denial with that reason, delivered back to the child's feed as a message.
 
 ```
 Controller's feed:
@@ -853,22 +1007,24 @@ Controller's feed:
 │  Approve                           [Send]  │  ← Default action: Approve
 └────────────────────────────────────────────┘
 
-To deny: right swipe → AI mode → explain why
+To deny: type a reason → LLM dispatches denial with explanation
 ```
 
 ### 8.5 Configuration Object Permissions
 
 The Config Registry is divided into named configuration objects. Each object is independently permissioned per controlled account.
 
-| Config object     | Example contents                 | Default for child account |
-| ----------------- | -------------------------------- | ------------------------- |
-| `layout`          | Card size, feed density          | ✅ Editable by account    |
-| `theme`           | Colours, font size               | ✅ Editable by account    |
-| `follow-list`     | Who account follows              | 🔒 Controller only        |
-| `content-filters` | Muted keywords, blocked domains  | 🔒 Controller only        |
-| `purchases`       | Payment methods, spending limits | 🔒 Controller only        |
-| `account-profile` | Display name, bio, avatar        | 🟡 Configurable           |
-| `trust-settings`  | Controller relationships         | 🔒 Controller only        |
+| Config object                 | Example contents                          | Default for child account                                |
+| ----------------------------- | ----------------------------------------- | -------------------------------------------------------- |
+| `layout`                      | Card size, feed density                   | ✅ Editable by account                                   |
+| `theme`                       | Colours, font size                        | ✅ Editable by account                                   |
+| `social.contacts`             | Who you follow/friend and their tags      | 🔒 Controller only (unless delegated per tag — see §8.9) |
+| `social.permissions`          | What each tag/combination unlocks         | 🔒 Controller only                                       |
+| `content-filters`             | Muted keywords, blocked domains           | 🔒 Controller only                                       |
+| `purchases`                   | Payment methods, spending limits          | 🔒 Controller only                                       |
+| `account-profile`             | Display name, bio, avatar                 | 🟡 Configurable                                          |
+| `trust-settings`              | Controller relationships                  | 🔒 Controller only                                       |
+| `trust.delegated_permissions` | Which tags child can manage independently | 🔒 Controller only                                       |
 
 **Controller LLM access to controlled account config:**
 
@@ -895,6 +1051,175 @@ TrustRequest("Purchase", vendor)    TrustRequest("Follow", competitor_account)
 
 No new primitives required. Only new extension manifests defining business-relevant object types and action vocabularies.
 
+### 8.8 Social Relationships & Contact Registry
+
+Relationships between users are expressed as **independent, non-hierarchical tags** applied to contacts. Tags are not tiers — they do not imply each other. A contact tagged `friend` is not automatically `following`; a contact tagged `close_friend` is not automatically `friend`. Each tag is applied or removed as a separate action.
+
+#### Relationship Tags (v1)
+
+| Tag            | Meaning                                   | AP Activity                |
+| -------------- | ----------------------------------------- | -------------------------- |
+| `following`    | You follow their public content           | Standard AP `Follow`       |
+| `friend`       | Explicit trust relationship               | `TrustRequest` (see below) |
+| `close_friend` | Highest trust — reserved for inner circle | `TrustRequest` (see below) |
+
+Tags are free strings stored in the Config Registry. The v1 set is `["following", "friend", "close_friend"]`, but the system is extensible — post-v1 tags (e.g. `colleague`, `family`) require no code changes, only config.
+
+#### Contact Registry
+
+Every contact is stored in the Config Registry under `social.contacts`, keyed by actor URI:
+
+```jsonc
+{
+  "social": {
+    "contacts": {
+      "https://bob.lightweb.cloud/users/bob": {
+        "tags": ["following", "friend"],
+        "aliases": ["bob", "Bob Smith"],
+        "addedAt": "2026-02-17T12:00:00Z",
+      },
+      "https://carol.example.com/users/carol": {
+        "tags": ["following"],
+        "aliases": ["carol"],
+        "addedAt": "2026-02-18T10:00:00Z",
+      },
+    },
+  },
+}
+```
+
+- `tags` — set of active relationship tags (independent, not hierarchical)
+- `aliases` — natural language names for LLM resolution (e.g. _"my dad"_, _"Bob"_). The LLM matches user references like _"message Bob"_ or _"ask my dad"_ against these aliases
+- `addedAt` — ISO timestamp of when the contact was first added
+
+#### Tag-Gated Permissions (Boolean Logic)
+
+Permissions are gated on relationship tags using boolean operators. Each permission rule uses `any` (OR) or `all` (AND) to define which tag combinations grant it:
+
+```jsonc
+{
+  "social": {
+    "permissions": {
+      "encrypted_chat": { "any": ["friend", "close_friend"] },
+      "insecure_dm": { "any": ["following", "friend", "close_friend"] },
+      "see_presence": { "all": ["following", "friend"] },
+      "see_read_receipts": { "any": ["close_friend"] },
+    },
+  },
+}
+```
+
+| Operator | Logic | Meaning                                               |
+| -------- | ----- | ----------------------------------------------------- |
+| `any`    | OR    | Contact must have **at least one** of the listed tags |
+| `all`    | AND   | Contact must have **all** of the listed tags          |
+
+v1 supports one operator per permission rule. Combining `any` and `all` in a single rule (e.g. `{ "all": ["following"], "any": ["friend", "close_friend"] }`) is a post-v1 consideration.
+
+**Permission evaluation:** When the system needs to check whether a contact is allowed a capability (e.g. encrypted chat), it reads the contact's tags from `social.contacts` and evaluates them against the corresponding permission rule in `social.permissions`. If the rule evaluates to `true`, the capability is granted.
+
+#### Follow Policy
+
+For open accounts, incoming AP `Follow` requests are handled according to `social.follow_policy`:
+
+| Policy              | Behaviour                                                               |
+| ------------------- | ----------------------------------------------------------------------- |
+| `auto_accept`       | Incoming follows are automatically accepted (default for open accounts) |
+| `approval_required` | Incoming follows generate a card in the feed; user must approve         |
+
+For controlled accounts, incoming follows are always subject to the controller's approval (unless `following` is in delegated permissions — see §8.9).
+
+#### Friend Request Flow (TrustRequest-Based)
+
+Adding a `friend` or `close_friend` tag to a contact is a trust-sensitive action that requires the other party's consent. The flow uses the existing `TrustRequest` mechanism:
+
+```
+FRIEND REQUEST FLOW
+═══════════════════════════════════════════════════════════════
+
+  Alice says "friend Bob"
+        │
+        ▼
+  ┌─────────────────────────────┐
+  │ Is Alice a controlled       │
+  │ account? And is "friend"    │──── Yes ───▶ TrustRequest to
+  │ NOT in delegated perms?     │              Alice's controller
+  └──────── No (or delegated) ──┘              (must approve first)
+        │
+        ▼
+  System generates TrustRequest
+  with requestedAction.type:
+  "AddRelationshipTag"
+  and tag: "friend"
+        │
+        ▼
+  TrustRequest sent to Bob
+  via AP inbox (encrypted, MLS)
+        │
+        ▼
+  Bob receives card in feed
+  (if Bob is controlled →
+   his controller must approve)
+        │
+        ▼
+  ┌─────────────────────────────┐
+  │ Bob accepts                 │
+  │ → Bob's config adds Alice   │
+  │   with "friend" tag         │
+  │ → TrustGrant sent to Alice  │
+  │ → Alice's config adds Bob   │
+  │   with "friend" tag         │
+  └─────────────────────────────┘
+        │
+        ▼
+  ┌─────────────────────────────┐
+  │ Mutual "friend" tag now     │
+  │ exists? AND encrypted_chat  │──── Yes ───▶ Create MLS group,
+  │ permission matches?         │              upgrade conversation
+  └──────── No ─────────────────┘
+        │
+        ▼
+  Done (one-way tag only)
+```
+
+**Tag promotion:** The same flow applies when promoting a contact (e.g. adding `close_friend` to someone already tagged `friend`). The TrustRequest specifies the new tag being added.
+
+**Tag removal (demotion):** Removing a tag from a contact is **unilateral** — no TrustRequest is needed. If you remove `friend` from a contact, that ends the mutual friendship. Removing a tag that gates `encrypted_chat` ends the encrypted conversation (irreversible — it does not downgrade to federated DM).
+
+#### Adding the `following` Tag
+
+The `following` tag is special — it corresponds to the standard AP `Follow` activity. When a user says _"follow @bob"_:
+
+1. System sends a standard AP `Follow` activity to Bob's server
+2. Bob's server responds with `Accept` or `Reject` (per Bob's `follow_policy`)
+3. On `Accept`, Alice's config adds Bob to `social.contacts` with `tags: ["following"]`
+
+This ensures interoperability — the `following` tag maps 1:1 to AP Follow, so it works with any AP server (Mastodon, Pleroma, etc.), not just Lightweb.
+
+### 8.9 Delegated Permissions for Controlled Accounts
+
+By default, all configuration changes on a controlled account require controller approval (generating a `TrustRequest`). However, the controller can **delegate** specific relationship tag changes to the controlled account, allowing them to act autonomously for those tags.
+
+Delegated permissions are stored in the Config Registry under `trust.delegated_permissions`:
+
+```jsonc
+{
+  "trust": {
+    "account_type": "controlled",
+    "controllers": ["https://parent.lightweb.cloud/users/parent"],
+    "delegated_permissions": {
+      "follow": true, // child can add/remove "following" tag without approval
+      "friend": false, // adding "friend" tag requires controller approval
+      "close_friend": false, // adding "close_friend" tag requires controller approval
+    },
+  },
+}
+```
+
+When a tag change matches a delegated permission set to `true`, no `TrustRequest` is generated to the controller — the controlled account proceeds autonomously. The controller can adjust delegated permissions at any time via their own LLM (writing to the controlled account's config).
+
+**Example:** A parent might delegate `follow` permission to their child so the child can follow accounts freely, while still requiring approval for `friend` requests (which unlock encrypted chat and other trust-gated features).
+
 ---
 
 ## 9. Object Model & Extension Architecture
@@ -905,7 +1230,94 @@ Lightweb Browser uses a **minimal, curated set of core object types.** Every typ
 
 > The pudding is in the organisation, not the type count.
 
-### 9.2 Core Object Types (v1)
+**Plain text only — no HTML.** All text content (`Note`, `Article`, `ChatMessage`) is plain text. Lightweb never renders user-supplied HTML. Uncontrolled layouts are treated as both a security risk (XSS, phishing, UI redressing) and an accessibility failure (screen readers, variable viewports, theme consistency). Incoming federated objects that contain HTML in `content` are stripped to plain text on ingestion. The `mediaType` field on all outgoing objects is always `text/plain`.
+
+### 9.2 ActivityPub / ActivityStreams Conformance
+
+The table below maps every AP/AS standard type to Lightweb's implementation status. **Implementation levels:**
+
+- **Native** — used as-is per the AP/AS spec, no modifications
+- **Extended** — standard AP/AS type with Lightweb namespace properties added (`lwMetadata`, `lwTags`, etc.)
+- **Proprietary** — Lightweb-only type with no direct AP/AS equivalent; published under `lightwebbrowser.org/ns`
+- **—** — not implemented in v1
+
+#### Activities
+
+| AP/AS Activity         | v1  | Implementation | Lightweb Usage                                              |
+| ---------------------- | --- | -------------- | ----------------------------------------------------------- |
+| `Accept`               | ✅  | Native         | Accept Follow, accept TrustRequest                          |
+| `TentativeAccept`      | —   |                |                                                             |
+| `Add`                  | ✅  | Native         | Add object to OrderedCollection                             |
+| `Announce`             | ✅  | Native         | Boost / repost a Note or Article                            |
+| `Block`                | —   |                | Not implemented — allowlist-only model                      |
+| `Create`               | ✅  | Native         | Create any object (Note, Product, etc.)                     |
+| `Delete`               | ✅  | Native         | Delete any owned object                                     |
+| `Dislike`              | ✅  | Native         | Dislike (👎) — used as part of the review mechanism         |
+| `Flag`                 | —   |                | No moderation at v1                                         |
+| `Follow`               | ✅  | Native         | Follow an actor                                             |
+| `Ignore`               | —   |                |                                                             |
+| `Invite`               | —   |                |                                                             |
+| `Join`                 | —   |                |                                                             |
+| `Leave`                | —   |                |                                                             |
+| `Like`                 | ✅  | Native         | Like (👍) a Note, Article, Product, Audio, Video            |
+| `Listen`               | —   |                | Playback tracked via Audio/Video actions, not activities    |
+| `Move`                 | —   |                |                                                             |
+| `Offer`                | —   |                |                                                             |
+| `Read`                 | —   |                | Read receipts handled at transport layer, not as activities |
+| `Reject`               | ✅  | Native         | Reject Follow, reject TrustRequest                          |
+| `TentativeReject`      | —   |                |                                                             |
+| `Remove`               | ✅  | Native         | Remove object from OrderedCollection                        |
+| `Undo`                 | ✅  | Native         | Undo Follow, Undo Like, Undo Dislike, Undo Announce         |
+| `Update`               | ✅  | Native         | Update any owned object                                     |
+| `IntransitiveActivity` | —   |                |                                                             |
+| `Arrive`               | —   |                |                                                             |
+| `Travel`               | —   |                |                                                             |
+| `Question`             | —   |                |                                                             |
+
+#### Objects
+
+| AP/AS Object        | v1  | Implementation | Lightweb Usage                                                                             |
+| ------------------- | --- | -------------- | ------------------------------------------------------------------------------------------ |
+| `Note`              | ✅  | Extended       | Status updates, fedi-DMs — short-form plain text, extended with `lwTags`, `lwMetadata`     |
+| `Article`           | ✅  | Extended       | Long-form posts — plain text (no HTML), extended with `lwTags`, `lwMetadata`               |
+| `Audio`             | ✅  | Extended       | Podcast episodes, music tracks — extended with `lwMetadata`, `lwTags`                      |
+| `Document`          | —   |                |                                                                                            |
+| `Event`             | —   |                |                                                                                            |
+| `Image`             | ✅  | Native         | Used as attachment on Notes, Products, etc.                                                |
+| `Page`              | —   |                |                                                                                            |
+| `Place`             | —   |                |                                                                                            |
+| `Profile`           | —   |                | Actor profile data stored on the Actor object directly                                     |
+| `Relationship`      | —   |                | Relationships modelled via tag-based system, not AP Relationship objects                   |
+| `Tombstone`         | ✅  | Native         | Marks deleted objects for federation consistency                                           |
+| `Video`             | ✅  | Extended       | TV episodes, movies, short videos — extended with `lwMetadata`, `lwTags`                   |
+| `Link`              | ✅  | Native         | Standard AP link references                                                                |
+| `Mention`           | ✅  | Native         | @-mentions in Notes and Articles                                                           |
+| `OrderedCollection` | ✅  | Extended       | Menus, playlists, TV shows, storefronts — extended with `lwMetadata.displayHint`, `lwTags` |
+| `Collection`        | ✅  | Native         | Standard AP collections (followers, following, outbox)                                     |
+| `CollectionPage`    | ✅  | Native         | Pagination for large collections                                                           |
+
+#### Actors
+
+| AP/AS Actor    | v1  | Implementation | Lightweb Usage                                                          |
+| -------------- | --- | -------------- | ----------------------------------------------------------------------- |
+| `Person`       | ✅  | Extended       | Primary user actor — extended with Lightweb trust and config properties |
+| `Application`  | —   |                |                                                                         |
+| `Group`        | —   |                | Group chat uses MLS, not AP Group actors                                |
+| `Organization` | —   |                |                                                                         |
+| `Service`      | —   |                |                                                                         |
+
+#### Lightweb Proprietary Types (no AP/AS equivalent)
+
+| Lightweb Type  | v1  | AP/AS Basis | Notes                                                                             |
+| -------------- | --- | ----------- | --------------------------------------------------------------------------------- |
+| `ChatMessage`  | ✅  | Proprietary | MLS-encrypted chat message — no standard AP equivalent for E2EE messaging         |
+| `TrustRequest` | ✅  | Proprietary | Permission escalation request — always encrypted. Publishing spec planned for v2  |
+| `TrustGrant`   | ✅  | Proprietary | Permission approval — always encrypted. Publishing spec planned for v2            |
+| `Product`      | ✅  | Proprietary | Purchasable item (physical, digital, or service). Publishing spec planned for v3+ |
+
+**Summary:** Lightweb implements 13 of 27 AP/AS activity types and 12 of 17 AP/AS object/actor types natively or with extensions. The 4 proprietary types fill gaps where AP/AS has no equivalent (E2EE messaging, trust delegation, commerce). Reviews are expressed via native `Like`, `Dislike`, and `Note` objects — no proprietary type needed. All proprietary types are published as open specs on a phased roadmap (§9.11). All text content is plain text — no HTML is ever rendered (§9.1).
+
+### 9.3 Core Object Types (v1)
 
 ```typescript
 interface LightwebObject extends ASObject {
@@ -921,18 +1333,19 @@ interface LightwebObject extends ASObject {
 }
 
 type LightwebObjectType =
-  | "Note" // social post
+  | "Note" // status update, fedi-DM (AP native, extended)
+  | "Article" // long-form post (AP native, extended)
+  | "Audio" // podcast episode, music track (AP native, extended)
+  | "Video" // TV episode, movie, short video (AP native, extended)
   | "ChatMessage" // E2EE chat message (always encrypted)
   | "TrustRequest" // permission escalation (always encrypted)
   | "TrustGrant" // permission approval (always encrypted)
-  | "Review" // 👍/👎 + blurb
-  | "Product" // any purchasable thing — physical, digital, or service
-  | "MediaItem"; // any media — episode, movie, track, video
+  | "Product"; // any purchasable thing — physical, digital, or service
 ```
 
-**That's it.** Seven types. Everything else — menus, TV shows, podcasts, storefronts, playlists — is expressed as native ActivityPub `OrderedCollection` hierarchies of `Product` and `MediaItem` objects with Lightweb namespace properties (`lwTags`, `lwMetadata`). Collections are not a custom type — they use AP's built-in `OrderedCollection`, which any AP server already understands. Lightweb-specific rendering is driven by `lwMetadata.displayHint`.
+**That's it.** Eight types — four of which (`Note`, `Article`, `Audio`, `Video`) are native AP/AS types extended with Lightweb namespace properties. Reviews are expressed via native `Like`, `Dislike`, and `Note` objects — no proprietary type needed (see §9.12). All text content is **plain text only** — no HTML is ever accepted or rendered (see §9.1). Everything else — menus, TV shows, podcasts, storefronts, playlists — is expressed as native ActivityPub `OrderedCollection` hierarchies of `Product`, `Audio`, and `Video` objects with Lightweb namespace properties (`lwTags`, `lwMetadata`). Collections are not a custom type — they use AP's built-in `OrderedCollection`, which any AP server already understands. Lightweb-specific rendering is driven by `lwMetadata.displayHint`.
 
-### 9.3 Collections — Native AP OrderedCollection with Lightweb Properties
+### 9.4 Collections — Native AP OrderedCollection with Lightweb Properties
 
 Collections use ActivityPub's native `OrderedCollection` type directly, extended with Lightweb namespace properties (`lwMetadata`, `lwTags`). This means any AP server recognizes them as valid collections — Lightweb-specific rendering is layered on top via `lwMetadata.displayHint`. Collections can nest arbitrarily (collections of collections), enabling menus, TV show seasons, playlists, etc. with no custom types.
 
@@ -977,9 +1390,9 @@ Collections use ActivityPub's native `OrderedCollection` type directly, extended
       "lwTags": ["season"],
       "orderedItems": [
         {
-          "type": "MediaItem",
+          "type": "Video",
           "name": "S1E1 — When You're Lost in the Darkness",
-          "lwMetadata": { "duration": 4920, "format": "4K", "episodeNumber": 1 },
+          "lwMetadata": { "duration": 4920, "quality": "4K", "episodeNumber": 1 },
           "lwTags": ["episode"]
         }
         // ... more episodes
@@ -991,7 +1404,42 @@ Collections use ActivityPub's native `OrderedCollection` type directly, extended
 
 The `lwMetadata.displayHint` field tells the client **how to render** the collection card — as a menu, a storefront, a show, a playlist, etc. The data structure is identical; only the presentation hint differs. Non-Lightweb servers see valid `OrderedCollection` objects and can display them as plain lists.
 
-### 9.4 The Product Type
+### 9.5 Note & Article — Status Updates and Long-Form Posts
+
+`Note` is a short-form status update — the equivalent of a tweet, toot, or fedi-DM. `Article` is a long-form post — a blog entry, essay, or announcement. Both are native AP/AS types extended with Lightweb namespace properties. **All content is plain text — no HTML is accepted or rendered** (see §9.1).
+
+```jsonc
+// A status update — native AP Note, extended
+{
+  "type": "Note",
+  "id": "https://alice.lightweb.cloud/objects/note-001",
+  "attributedTo": "https://alice.lightweb.cloud/users/alice",
+  "content": "Just tried the new Italian place on 5th. Incredible bruschetta.",
+  "mediaType": "text/plain",
+  "published": "2026-02-18T12:00:00Z",
+  "lwTags": ["food", "restaurant"],
+}
+
+// A long-form post — native AP Article, extended
+{
+  "type": "Article",
+  "id": "https://alice.lightweb.cloud/objects/article-001",
+  "attributedTo": "https://alice.lightweb.cloud/users/alice",
+  "name": "Why I Left Instagram",
+  "content": "After ten years of algorithmic feeds and sponsored content, I decided to try something different. Here's what I learned about owning my own social presence...",
+  "mediaType": "text/plain",
+  "published": "2026-02-18T14:30:00Z",
+  "lwTags": ["essay", "social-media", "personal"],
+  "lwMetadata": { "wordCount": 1200 },
+}
+```
+
+**Note available actions:** Reply, Like, Boost, Delete
+**Article available actions:** Reply, Like, Boost, Delete
+
+The distinction matters for federation: other AP servers (Mastodon, Pleroma, etc.) render `Note` and `Article` differently — `Note` as a short status, `Article` with a title and full body. By using the correct native types, Lightweb content displays properly across the fediverse without any special handling.
+
+### 9.6 The Product Type
 
 `Product` covers any purchasable thing — physical goods, digital downloads, and services. Services are not a separate type; they are `Product` objects with `lwTags: ["service"]`.
 
@@ -1014,67 +1462,86 @@ The `lwMetadata.displayHint` field tells the client **how to render** the collec
 }
 ```
 
-**Available actions:** Purchase, Save, Share, Review, React
+**Available actions:** Purchase, Save, Share, Like, Dislike, React
 
-### 9.5 The MediaItem Type
+### 9.7 Media Types — Audio & Video
 
-`MediaItem` covers any media — a podcast episode, TV episode, movie, music track, or short video. The distinction between a "podcast" and a "TV show" is expressed via `lwTags` and parent `OrderedCollection`, not by type.
+Lightweb uses the native AP/AS `Audio` and `Video` types directly, extended with Lightweb namespace properties. The distinction between a "podcast" and a "TV show" is expressed via `lwTags` and parent `OrderedCollection`, not by type. Any AP server already understands `Audio` and `Video` — Lightweb adds structured metadata on top.
 
 ```jsonc
+// A podcast episode — native AP Audio, extended
 {
-  "type": "MediaItem",
+  "type": "Audio",
   "id": "https://media.lightweb.cloud/objects/ep-001",
   "name": "Episode 1 — The Beginning",
+  "url": "https://media.lightweb.cloud/stream/ep-001", // standard AP property
+  "duration": "PT45M", // ISO 8601 duration (standard AP property)
   "lwMetadata": {
-    "duration": 2700, // seconds
-    "format": "audio", // "audio" | "video" | "4K" | "HD" | "SD"
     "streamUrl": "...", // resolved server-side, never exposed to untrusted clients
     "episodeNumber": 1,
   },
   "lwTags": ["podcast", "technology", "interview"],
 }
+
+// A TV episode — native AP Video, extended
+{
+  "type": "Video",
+  "id": "https://media.lightweb.cloud/objects/ep-s1e1",
+  "name": "S1E1 — When You're Lost in the Darkness",
+  "url": "https://media.lightweb.cloud/stream/ep-s1e1",
+  "duration": "PT1H22M",
+  "lwMetadata": {
+    "quality": "4K", // "SD" | "HD" | "4K"
+    "streamUrl": "...",
+    "episodeNumber": 1,
+  },
+  "lwTags": ["episode", "drama"],
+}
 ```
 
-**Available actions:** Play, Save, Share, Review, React
+**Available actions:** Play, Save, Share, Like, Dislike, React
 
-### 9.6 Type → Action Vocabulary
+### 9.8 Type → Action Vocabulary
 
-| Object type         | Available actions                    | Reviewable                | Encrypted           |
-| ------------------- | ------------------------------------ | ------------------------- | ------------------- |
-| `Note` (public)     | Reply, Like, Boost, Delete           | ✅ Yes                    | ❌ No               |
-| `Note` (private DM) | Reply, Delete                        | ❌ No                     | ❌ No (standard AP) |
-| `ChatMessage`       | Reply, Delete                        | ❌ No                     | ✅ Always (MLS)     |
-| `TrustRequest`      | Approve, Escalate                    | ❌ No                     | ✅ Always           |
-| `TrustGrant`        | Revoke                               | ❌ No                     | ✅ Always           |
-| `Review`            | Like, Boost, Delete                  | ❌ No                     | ❌ No               |
-| `Product`           | Purchase, Save, Share, Review, React | ✅ Yes                    | ❌ No               |
-| `MediaItem`         | Play, Save, Share, Review, React     | ✅ Yes                    | ❌ No               |
-| `OrderedCollection` | Browse, Save, Share, React           | 🟡 Inherits from children | ❌ No               |
+| Object type         | Available actions                           | Reviewable (Like/Dislike/Note) | Encrypted           |
+| ------------------- | ------------------------------------------- | ------------------------------ | ------------------- |
+| `Note` (status)     | Reply, Like, Boost, Delete                  | ❌ No                          | ❌ No               |
+| `Note` (private DM) | Reply, Delete                               | ❌ No                          | ❌ No (standard AP) |
+| `Article`           | Reply, Like, Dislike, Boost, Delete         | ✅ Yes                         | ❌ No               |
+| `ChatMessage`       | Reply, Delete                               | ❌ No                          | ✅ Always (MLS)     |
+| `TrustRequest`      | Approve, Escalate                           | ❌ No                          | ✅ Always           |
+| `TrustGrant`        | Revoke                                      | ❌ No                          | ✅ Always           |
+| `Product`           | Purchase, Save, Share, Like, Dislike, React | ✅ Yes                         | ❌ No               |
+| `Audio`             | Play, Save, Share, Like, Dislike, React     | ✅ Yes                         | ❌ No               |
+| `Video`             | Play, Save, Share, Like, Dislike, React     | ✅ Yes                         | ❌ No               |
+| `OrderedCollection` | Browse, Save, Share, React                  | 🟡 Inherits from children      | ❌ No               |
 
-### 9.7 Tags — Filtering and Discovery
+### 9.9 Tags — Filtering and Discovery
 
 `lwTags` are arbitrary string tags on any object or collection. They drive filtering, sorting, and discovery. Examples:
 
 ```
 Product tags:    "vegan", "gluten-free", "handmade", "service", "digital"
-MediaItem tags:  "podcast", "episode", "movie", "4K", "mature", "documentary"
+Audio tags:      "podcast", "music", "interview", "audiobook"
+Video tags:      "episode", "movie", "4K", "mature", "documentary", "short"
 OrderedCollection tags: "restaurant", "menu", "tvshow", "season", "playlist", "storefront"
 Note tags:       (user-defined, used for search and muting)
+Article tags:    "blog", "essay", "tutorial", "announcement"
 ```
 
 Tags are not a controlled vocabulary — they are free strings. The LLM can suggest tags when an object is created and can filter feeds by tag on user request (_"show me only vegan items"_, _"hide mature content"_).
 
-### 9.8 Action Parameters & Registry Defaults
+### 9.10 Action Parameters & Registry Defaults
 
 Every action has parameters with registry-stored defaults, adjustable via LLM.
 
 ```jsonc
-// Extension manifest: MediaItem
+// Extension manifest: Audio & Video (shared media actions)
 {
   "extension": "lightwebbrowser.org/ns/media",
-  "objectType": "MediaItem",
+  "objectTypes": ["Audio", "Video"],
   "encryption": "none",
-  "reviewable": true,
+  "reviewable": true, // supports Like/Dislike/Note review mechanism (§9.12)
   "actions": [
     {
       "verb": "Play",
@@ -1129,7 +1596,7 @@ Every action has parameters with registry-stored defaults, adjustable via LLM.
 
 **The LLM does not need retraining for object types.** Each extension manifest is injected into the LLM system prompt at request time — new types teach the LLM new nouns and verbs via natural language description.
 
-### 9.9 JSON-LD Namespace & Publishing
+### 9.11 JSON-LD Namespace & Publishing
 
 Extensions are published as JSON-LD context documents at `https://lightwebbrowser.org/ns`. Other ActivityPub servers may implement these types as they wish. Lightweb does not control or gate third-party implementations — the spec is open, the implementation is curated.
 
@@ -1137,32 +1604,45 @@ Extensions are published as JSON-LD context documents at `https://lightwebbrowse
 
 - **v1:** Internal — namespace not publicly resolvable; spec documented internally
 - **v2:** Publish `TrustRequest`, `TrustGrant` specs — highest interoperability value
-- **v3+:** Publish `Product`, `MediaItem`, full ecommerce vocabulary
+- **v3+:** Publish `Product`, full ecommerce vocabulary, and `lwMetadata` extensions for `Audio`/`Video`
 
-### 9.10 The Review Object
+### 9.12 Reviews — Native Like, Dislike & Note
+
+Reviews are expressed using three native ActivityStreams objects — no proprietary type required:
+
+1. **`Like`** — 👍 positive rating (native AP activity)
+2. **`Dislike`** — 👎 negative rating (native AP activity)
+3. **`Note`** — optional review blurb attached as `inReplyTo` the reviewed object
 
 ```jsonc
+// 👍 Like a product — native AP Like activity
 {
-  "type": "Review",
-  "id": "https://server.com/reviews/abc123",
+  "type": "Like",
   "actor": "https://server.com/users/alice",
   "object": "https://remote.com/objects/product-xyz",
-  "lwMetadata": {
-    "rating": "positive", // "positive" | "negative"  (👍 | 👎)
-    "blurb": "Loved the quality, arrived quickly.",
-  },
-  "published": "2026-02-17T12:00:00Z",
+  "published": "2026-02-17T12:00:00Z"
+}
+
+// Optional review blurb — native AP Note, linked to the reviewed object
+{
+  "type": "Note",
+  "id": "https://server.com/notes/review-abc123",
+  "attributedTo": "https://server.com/users/alice",
+  "inReplyTo": "https://remote.com/objects/product-xyz",
+  "content": "Loved the quality, arrived quickly.",
+  "mediaType": "text/plain",
+  "published": "2026-02-17T12:00:01Z"
 }
 ```
 
 **Review rules:**
 
-- One review per actor per object — subsequent reviews replace the previous
-- Blurb optional but encouraged — LLM prompts for one if omitted
-- Reviews are not themselves reviewable
-- `Note` and `ChatMessage` are not reviewable — use Like/Boost for posts
-- Reviewable types at v1: `Note` (posts), `Product`, `MediaItem`
+- One Like or Dislike per actor per object — subsequent actions replace the previous (via `Undo` + re-issue)
+- Blurb (`Note` as `inReplyTo`) optional but encouraged — LLM prompts for one if omitted
+- `Note` (status) and `ChatMessage` are not reviewable — use Like/Boost for status updates
+- Reviewable types at v1: `Article`, `Product`, `Audio`, `Video`
 - Aggregate counts (👍 total, 👎 total) computed server-side and cached
+- **Future:** blockchain or central authority for fraud-resistant Like/Dislike counts is a post-v1 consideration
 
 ---
 
@@ -1267,10 +1747,10 @@ Encryption is defined **per object type in the extension manifest**, not as a bl
 | -------------------------------- | ------------------------------- | ------------------------------------------------------------------------------- |
 | `ChatMessage`                    | ✅ Required (MLS)               | `encryption: "required"`                                                        |
 | `TrustRequest` / `TrustGrant`    | ✅ Required (MLS)               | `encryption: "required"`                                                        |
-| `Note` (public post)             | ❌ None                         | `encryption: "none"`                                                            |
+| `Note` (public status)           | ❌ None                         | `encryption: "none"`                                                            |
 | `Note` (private DM)              | ❌ None (standard AP transport) | N/A — standard AP `Note` with private addressing; not a Lightweb extension type |
-| `Review`                         | ❌ None                         | `encryption: "none"`                                                            |
-| `Product` / `MediaItem`          | ❌ None (public objects)        | `encryption: "none"`                                                            |
+| `Article`                        | ❌ None                         | `encryption: "none"`                                                            |
+| `Product` / `Audio` / `Video`    | ❌ None (public objects)        | `encryption: "none"`                                                            |
 | HTTP Signatures (all federation) | ✅ Ed25519 signing              | Transport layer                                                                 |
 | Config Registry                  | ❌ Server-side only             | Never on client                                                                 |
 
@@ -1331,7 +1811,7 @@ The Config Registry is the single source of truth for all system behaviour. It i
   },
 
   "auth": {
-    "sso_providers": ["google", "facebook"],
+    "sso_providers": ["google", "apple"],
     "jwt_expiry_seconds": 3600,
     "refresh_token_expiry_days": 30,
   },
@@ -1353,18 +1833,42 @@ The Config Registry is the single source of truth for all system behaviour. It i
     },
     "read_receipts": {
       "enabled": true, // on by default
-      "posts_require_swipe": true, // post read receipt only on left-swipe connect
+      "posts_require_swipe": true, // post read receipt only on swipe-to-connect
     },
   },
 
   "messaging": {
     "allow_insecure_dm": false, // default: reject federated DMs from unknown senders
-    "allow_insecure_dm_from_allowlist": true, // even when above is false, one-way allowlisted
-    // contacts can send federated DMs (before mutual upgrade)
     "rcs": {
       "typing_indicators": true, // send typing events (encrypted mode only)
       "read_receipts": true, // send read receipts (encrypted mode only)
       "presence": true, // online/offline/last seen (encrypted mode only)
+    },
+  },
+
+  "social": {
+    "follow_policy": "auto_accept", // "auto_accept" | "approval_required"
+    "relationship_tags": ["following", "friend", "close_friend"], // extensible
+    "contacts": {
+      // keyed by actor URI — populated at runtime, empty at init
+    },
+    "permissions": {
+      // each rule uses "any" (OR) or "all" (AND) boolean logic
+      "encrypted_chat": { "any": ["friend", "close_friend"] },
+      "insecure_dm": { "any": ["following", "friend", "close_friend"] },
+      "see_presence": { "any": ["friend", "close_friend"] },
+      "see_read_receipts": { "any": ["close_friend"] },
+    },
+  },
+
+  "trust": {
+    "account_type": "open", // "open" | "controlled"
+    "controllers": [], // actor URIs of controlling accounts
+    "delegated_permissions": {
+      // only relevant for controlled accounts
+      "follow": true, // can add/remove "following" tag without approval
+      "friend": false, // adding "friend" tag requires controller approval
+      "close_friend": false, // adding "close_friend" tag requires controller approval
     },
   },
 
@@ -1413,6 +1917,7 @@ The Config Registry is the single source of truth for all system behaviour. It i
 /
 ├── apps/
 │   ├── mobile/           # Expo React Native (iOS + Android)
+│   ├── quest/            # Meta Quest client (React Native / OpenXR — voice-first VR/AR)
 │   └── server/           # Next.js — unified server (API, AP engine, LLM client, web shell)
 │       ├── app/           # Next.js App Router (pages, layouts, RSC)
 │       ├── api/           # API routes (REST, AP inbox/outbox, WebFinger)
@@ -1422,12 +1927,13 @@ The Config Registry is the single source of truth for all system behaviour. It i
 │   │   ├── Feed/
 │   │   ├── Card/
 │   │   ├── InputBar/
-│   │   └── SwipePanes/
+│   │   ├── SwipeNavigator/
+│   │   └── DraftCard/
 │   ├── types/            # Shared TypeScript types
 │   ├── ap-core/          # ActivityPub builders & validators
 │   ├── lw-objects/       # LightwebObject base type + extension manifest loader
-│   │   ├── base/         # LightwebObject, TrustRequest, TrustGrant, Review
-│   │   └── extensions/   # Internal extension manifests (Product, MediaItem, etc.)
+│   │   ├── base/         # LightwebObject, TrustRequest, TrustGrant
+│   │   └── extensions/   # Internal extension manifests (Product, Audio/Video media, etc.)
 │   ├── llm-client/       # LLM provider abstraction (Claude, OpenAI, Gemini)
 │   ├── db-client/        # Database provider abstraction (Postgres, SQLite)
 │   ├── queue-client/     # Queue/cache provider abstraction (Redis, in-memory)
@@ -1447,45 +1953,49 @@ The Config Registry is the single source of truth for all system behaviour. It i
 
 ## 14. Open Questions
 
-| #   | Question                        | Owner              | Status                                                                                                                                  |
-| --- | ------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | App name                        | Product            | 🟢 **Lightweb Browser**                                                                                                                 |
-| 2   | SSO providers                   | Product            | 🟢 Google + Facebook (+ Apple likely required for App Store)                                                                            |
-| 3   | Notifications                   | Product            | 🟢 Replaced by feed cards — no separate notification system                                                                             |
-| 4   | Account model                   | Product            | 🟢 Open or Controlled; no intermediate types                                                                                            |
-| 5   | Controller LLM scope            | Product            | 🟢 Config-write only; cannot execute actions on controlled account                                                                      |
-| 6   | Allowlist philosophy            | Product            | 🟢 Confirmed — allowlist always, never deny                                                                                             |
-| 7   | LLM write scope                 | Product + Security | 🟢 User LLM: own config objects only. Server-wide: operator only                                                                        |
-| 8   | TrustRequest scopes             | Product            | 🟢 Three scopes: `once`, `content-only`, `persistent`                                                                                   |
-| 9   | Multiple controllers            | Product            | 🟢 Any one controller sufficient; first to respond wins                                                                                 |
-| 10  | Hosting model                   | Product            | 🟢 Single-user-per-server — dedicated container per user, domain = identity                                                             |
-| 11  | Content moderation              | Product            | 🟢 None at v1. No comments. Review objects (👍/👎 + blurb) replace them                                                                 |
-| 12  | E2EE                            | Engineering        | 🟢 MLS (RFC 9420). Hybrid key storage                                                                                                   |
-| 13  | Rating format                   | Product            | 🟢 👍 / 👎 + optional blurb                                                                                                             |
-| 14  | Extension namespace             | Product            | 🟢 v1 internal; v2 publish TrustRequest/TrustGrant; v3+ domain types                                                                    |
-| 15  | Chat thread layout              | Product            | 🟢 Full screen on 1-col mobile; right column on 2+ col tablet/web                                                                       |
-| 16  | Group host migration            | Engineering        | 🟢 Automatic — oldest remaining member's server via MLS commit                                                                          |
-| 17  | Column counts                   | Product            | 🟢 Mobile default 1, tablet 2–3; always user-configurable per device                                                                    |
-| 18  | Encryption per type             | Engineering        | 🟢 Defined in extension manifest (`encryption: "required"/"optional"/"none"`)                                                           |
-| 19  | App store strategy              | Product            | 🟢 Single app — "Lightweb Browser" on iOS and Android. Server personalisation happens at first launch, not in the binary                |
-| 20  | AI chat history                 | Product            | 🟢 Not stored — ephemeral per session                                                                                                   |
-| 21  | LLM API key                     | Engineering        | 🟢 Operator only at v1; user-owned LLM is post-v1                                                                                       |
-| 22  | Remote feed connection          | Engineering        | 🟢 Background polling (default 60s, configurable) + on-demand WebSocket on left-swipe                                                   |
-| 23  | Config registry tracking        | Engineering        | 🟢 Git-tracked — secrets via env vars only                                                                                              |
-| 24  | Key revocation                  | Engineering        | 🟢 MLS epoch advancement — any group member triggers commit; old-epoch messages inaccessible after rotation                             |
-| 25  | Reviewable types at v1          | Product            | 🟢 Note, Product, MediaItem                                                                                                             |
-| 26  | Container orchestration         | Engineering        | 🟢 Kubernetes                                                                                                                           |
-| 27  | Read receipts                   | Product            | 🟢 On by default. Post read receipt only on left-swipe connect. Chat on delivery/view                                                   |
-| 29  | Object types                    | Product            | 🟢 7 core types: Note, ChatMessage, TrustRequest, TrustGrant, Review, Product, MediaItem. Collections use native AP `OrderedCollection` |
-| 30  | Collection implementation       | Engineering        | 🟢 Native AP `OrderedCollection` with Lightweb namespace properties (`lwMetadata`, `lwTags`)                                            |
-| 31  | Background polling default      | Product            | 🟢 60s, user-configurable in registry                                                                                                   |
-| 32  | Services as type                | Product            | 🟢 Services are Products with `lwTags: ["service"]` — no separate type                                                                  |
-| 33  | Apple Sign In                   | Legal + Eng        | 🟡 Likely required for App Store compliance — confirm before submission                                                                 |
-| 34  | Hosting model detail            | Engineering        | 🟢 Single Next.js process + local Redis sidecar per container; managed PG (separate DB per user); shared S3/R2 and external LLM API     |
-| 35  | Extension namespace publication | Product            | 🟢 v1 internal spec; v2 publish TrustRequest/TrustGrant; v3+ Product/MediaItem                                                          |
-| 36  | Server architecture             | Engineering        | 🟢 Consolidated single Next.js process — no separate microservices. AP engine, LLM client, API, and web shell in one process            |
-| 37  | Database hosting                | Engineering        | 🟢 Managed PostgreSQL (e.g. Supabase) — separate database per user, connection pooling by provider                                      |
-| 38  | UI code sharing                 | Engineering        | 🟢 Solito + react-native-web — single shared UI across iOS, Android, and web. Minimal client JS for interactivity                       |
+| #   | Question                         | Owner              | Status                                                                                                                                                                            |
+| --- | -------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | App name                         | Product            | 🟢 **Lightweb Browser**                                                                                                                                                           |
+| 2   | SSO providers                    | Product            | 🟢 Google + Apple. Additional providers (e.g. Facebook) are the cloud provider's responsibility, not the app spec                                                                 |
+| 3   | Notifications                    | Product            | 🟢 Replaced by feed cards — no separate notification system                                                                                                                       |
+| 4   | Account model                    | Product            | 🟢 Open or Controlled; no intermediate types                                                                                                                                      |
+| 5   | Controller LLM scope             | Product            | 🟢 Config-write only; cannot execute actions on controlled account                                                                                                                |
+| 6   | Allowlist philosophy             | Product            | 🟢 Confirmed — allowlist always, never deny                                                                                                                                       |
+| 7   | LLM write scope                  | Product + Security | 🟢 User LLM: own config objects only. Server-wide: operator only                                                                                                                  |
+| 8   | TrustRequest scopes              | Product            | 🟢 Three scopes: `once`, `content-only`, `persistent`                                                                                                                             |
+| 9   | Multiple controllers             | Product            | 🟢 Any one controller sufficient; first to respond wins                                                                                                                           |
+| 10  | Hosting model                    | Product            | 🟢 Single-user-per-server — dedicated container per user, domain = identity                                                                                                       |
+| 11  | Content moderation               | Product            | 🟢 None at v1. No comments. Reviews via native `Like`/`Dislike`/`Note` replace them                                                                                               |
+| 12  | E2EE                             | Engineering        | 🟢 MLS (RFC 9420). Hybrid key storage                                                                                                                                             |
+| 13  | Rating format                    | Product            | 🟢 👍 / 👎 via native Like/Dislike + optional Note blurb                                                                                                                          |
+| 14  | Extension namespace              | Product            | 🟢 v1 internal; v2 publish TrustRequest/TrustGrant; v3+ domain types                                                                                                              |
+| 15  | Chat thread layout               | Product            | 🟢 Full screen on 1-col mobile; right column on 2+ col tablet/web                                                                                                                 |
+| 16  | Group host migration             | Engineering        | 🟢 Automatic — oldest remaining member's server via MLS commit                                                                                                                    |
+| 17  | Column counts                    | Product            | 🟢 Mobile default 1, tablet 2–3; always user-configurable per device                                                                                                              |
+| 18  | Encryption per type              | Engineering        | 🟢 Defined in extension manifest (`encryption: "required"/"optional"/"none"`)                                                                                                     |
+| 19  | App store strategy               | Product            | 🟢 Single app — "Lightweb Browser" on iOS and Android. Server personalisation happens at first launch, not in the binary                                                          |
+| 20  | AI chat history                  | Product            | 🟢 Not stored — ephemeral per session                                                                                                                                             |
+| 21  | LLM API key                      | Engineering        | 🟢 Operator only at v1; user-owned LLM is post-v1                                                                                                                                 |
+| 22  | Remote feed connection           | Engineering        | 🟢 Background polling (default 60s, configurable) + on-demand WebSocket on swipe-to-connect                                                                                       |
+| 23  | Config registry tracking         | Engineering        | 🟢 Git-tracked — secrets via env vars only                                                                                                                                        |
+| 24  | Key revocation                   | Engineering        | 🟢 MLS epoch advancement — any group member triggers commit; old-epoch messages inaccessible after rotation                                                                       |
+| 25  | Reviewable types at v1           | Product            | 🟢 Article, Product, Audio, Video (reviewed via native Like/Dislike/Note)                                                                                                         |
+| 26  | Container orchestration          | Engineering        | 🟢 Kubernetes                                                                                                                                                                     |
+| 27  | Read receipts                    | Product            | 🟢 On by default. Post read receipt only on swipe-to-connect. Chat on delivery/view                                                                                               |
+| 29  | Object types                     | Product            | 🟢 8 core types: Note, Article, Audio, Video, ChatMessage, TrustRequest, TrustGrant, Product. Reviews via native Like/Dislike/Note. Collections use native AP `OrderedCollection` |
+| 30  | Collection implementation        | Engineering        | 🟢 Native AP `OrderedCollection` with Lightweb namespace properties (`lwMetadata`, `lwTags`)                                                                                      |
+| 31  | Background polling default       | Product            | 🟢 60s, user-configurable in registry                                                                                                                                             |
+| 32  | Services as type                 | Product            | 🟢 Services are Products with `lwTags: ["service"]` — no separate type                                                                                                            |
+| 33  | Apple Sign In                    | Legal + Eng        | 🟢 Included — Google + Apple are the two app-level SSO providers. Additional providers are the cloud provider's responsibility                                                    |
+| 34  | Hosting model detail             | Engineering        | 🟢 Single Next.js process + local Redis sidecar per container; managed PG (separate DB per user); shared S3/R2 and external LLM API                                               |
+| 35  | Extension namespace publication  | Product            | 🟢 v1 internal spec; v2 publish TrustRequest/TrustGrant; v3+ Product, Audio/Video lwMetadata extensions                                                                           |
+| 36  | Server architecture              | Engineering        | 🟢 Consolidated single Next.js process — no separate microservices. AP engine, LLM client, API, and web shell in one process                                                      |
+| 37  | Database hosting                 | Engineering        | 🟢 Managed PostgreSQL (e.g. Supabase) — separate database per user, connection pooling by provider                                                                                |
+| 38  | UI code sharing                  | Engineering        | 🟢 Solito + react-native-web — single shared UI across iOS, Android, and web. Minimal client JS for interactivity                                                                 |
+| 39  | Relationship model               | Product            | 🟢 Tag-based, non-hierarchical. Tags: `following`, `friend`, `close_friend`. Independent — `friend` does not imply `following`. Permissions gated via boolean `any`/`all` rules   |
+| 40  | Follow policy (open accounts)    | Product            | 🟢 Auto-accept by default; configurable to `approval_required` via LLM                                                                                                            |
+| 41  | Controlled account relationships | Product            | 🟢 All tag changes require controller approval by default; delegable per tag via `trust.delegated_permissions`                                                                    |
+| 42  | Friend request mechanism         | Product            | 🟢 Uses `TrustRequest` with `requestedAction.type: "AddRelationshipTag"`. Consent required from target. Mutual friendship triggers chat upgrade                                   |
 
 ---
 
@@ -1494,16 +2004,16 @@ The Config Registry is the single source of truth for all system behaviour. It i
 | Phase                                      | Timeline    | Deliverables                                                                                                          |
 | ------------------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------- |
 | **Phase 0 — Foundation**                   | Weeks 1–3   | Monorepo, Next.js server scaffold, DB schema, Config Registry, WebFinger + Actor endpoints, Redis sidecar, Dockerfile |
-| **Phase 1 — Core Federation**              | Weeks 4–8   | AP engine (inbox/outbox), Follow/Accept, HTTP Signatures, `Note` and `ChatMessage` types                              |
+| **Phase 1 — Core Federation**              | Weeks 4–8   | AP engine (inbox/outbox), Follow/Accept, HTTP Signatures, `Note`, `Article`, and `ChatMessage` types                  |
 | **Phase 2 — Column Navigator + Input Bar** | Weeks 6–12  | Shared Solito UI, column navigator, focused card, input bar, SSO auth, 1-col mobile + 2-col tablet                    |
 | **Phase 3 — Chat (1:1 + Group)**           | Weeks 8–14  | ChatMessage object, MLS encryption, WebSocket server, group host model, host migration, feed cards                    |
-| **Phase 4 — Swipe + AI Pane**              | Weeks 10–15 | Left swipe (context-dependent column), right swipe (AI pane), animations, minimal client JS                           |
+| **Phase 4 — Swipe + Content Creation**     | Weeks 10–15 | Symmetric swipe (context-dependent columns), content creation flow, draft cards, animations, minimal client JS        |
 | **Phase 5 — LLM Client**                   | Weeks 12–16 | LLM client module, Claude integration, config read/write, action dispatch                                             |
 | **Phase 6 — Circle of Trust**              | Weeks 14–18 | Controlled accounts, TrustRequest/TrustGrant, approval flow, config object permissions                                |
-| **Phase 7 — Object Model + Reviews**       | Weeks 16–19 | LightwebObject base, extension manifest loader, Review object                                                         |
+| **Phase 7 — Object Model + Reviews**       | Weeks 16–19 | LightwebObject base, extension manifest loader, native Like/Dislike/Note review mechanism                             |
 | **Phase 8 — Lightweb Cloud**               | Weeks 17–21 | K8s deployment, container provisioning, per-user DB creation, managed PG setup, billing hooks                         |
 | **Phase 9 — Polish & Launch**              | Weeks 21–26 | Performance, a11y, beta testing, app store submission                                                                 |
-| **Post-v1**                                | TBD         | Video chat (SFU on host server), TrustRequest open standard, business trust, Apple SSO                                |
+| **Post-v1**                                | TBD         | Video chat (SFU on host server), TrustRequest open standard, business trust                                           |
 
 ---
 
