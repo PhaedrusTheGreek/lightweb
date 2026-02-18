@@ -2,7 +2,7 @@
 
 ## Lightweb Browser — ActivityPub Platform
 
-**Version:** 0.7 (Draft)
+**Version:** 0.8 (Draft)
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-02-17
 
@@ -99,6 +99,8 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 - ✅ Left swipe → opens new column to the right (remote feed of swiped card, or chat thread, etc)
 - ✅ Right swipe → AI mode for swiped card (configuration, custom interactions)
 - ✅ **Chat-first messaging** — 1:1 and group chat, WhatsApp-equivalent, E2EE via MLS
+- ✅ **Federated DMs** — cross-implementation direct messaging via standard AP private `Note` objects; default-deny, configurable per account
+- ✅ **Conversation upgrade** — federated DMs automatically upgrade to encrypted `ChatMessage` + RCS when both parties mutually allowlist; unified chat thread UI with per-message encryption and RCS indicators
 - ✅ `ChatMessage` object type — dedicated type, always encrypted, separate from `Note`
 - ✅ Group chat with host server model — creator's server is MLS Delivery Service
 - ✅ Automatic group host migration — oldest remaining member's server takes over
@@ -330,7 +332,8 @@ interface QueueProvider {
 
 ### 6.2 Activity Types (v1.0)
 
-- `Create` (Note) — posts and DMs
+- `Create` (Note) — public posts and federated DMs (private `Note` with restricted addressing)
+- `Create` (ChatMessage) — E2EE chat messages (Lightweb-to-Lightweb, mutual allowlist required)
 - `Follow` / `Accept` / `Reject`
 - `Like`
 - `Announce` — boosts / reposts
@@ -404,13 +407,14 @@ The input bar is ostensibly the **only** interactive control in the entire UI. I
 
 The bar's mode, placeholder text, and submit action are determined entirely by the **focused card** and **current pane.**
 
-| Pane state               | Focused card            | Placeholder                                   | Submit action     |
-| ------------------------ | ----------------------- | --------------------------------------------- | ----------------- |
-| Home feed                | Post from followed user | `Reply to @alice…`                            | ActivityPub reply |
-| Home feed                | DM thread               | `Reply…`                                      | DM reply          |
-| Home feed                | Own post or empty       | `What's on your mind?`                        | New post          |
-| Remote feed (right pane) | Remote post             | `Reply to @bob@remote.social…`                | Federated reply   |
-| AI pane (left pane)      | Any card                | `Ask about this, or say what you want to do…` | Sent to LLM       |
+| Pane state               | Focused card                 | Placeholder                                   | Submit action                  |
+| ------------------------ | ---------------------------- | --------------------------------------------- | ------------------------------ |
+| Home feed                | Post from followed user      | `Reply to @alice…`                            | ActivityPub reply              |
+| Home feed                | Chat thread (federated) 🔓   | `Reply…`                                      | Federated DM (private `Note`)  |
+| Home feed                | Chat thread (encrypted) 🔒📡 | `Reply…`                                      | Encrypted chat (`ChatMessage`) |
+| Home feed                | Own post or empty            | `What's on your mind?`                        | New post                       |
+| Remote feed (right pane) | Remote post                  | `Reply to @bob@remote.social…`                | Federated reply                |
+| AI pane (left pane)      | Any card                     | `Ask about this, or say what you want to do…` | Sent to LLM                    |
 
 #### Mode Switching
 
@@ -517,11 +521,80 @@ LLM Client:
 
 ### 7.5 Chat — 1:1 and Group Messaging
 
-Chat is a **first-class, primary feature** of Lightweb Browser v1 — equivalent in importance to the social feed. All chat messages use the `ChatMessage` object type (not `Note`) and are always end-to-end encrypted via MLS.
+Chat is a **first-class, primary feature** of Lightweb Browser v1 — equivalent in importance to the social feed. Lightweb supports two distinct wire formats for direct messaging — **federated DMs** (standard ActivityPub private `Note` objects) and **encrypted chat** (`ChatMessage` objects over MLS) — presented in a **single unified chat thread** in the UI.
+
+#### Two Wire Types, One Thread
+
+|                   | Federated DM                                         | Encrypted Chat                                    |
+| ----------------- | ---------------------------------------------------- | ------------------------------------------------- |
+| **Wire type**     | `Note` (private addressing)                          | `ChatMessage` (Lightweb custom)                   |
+| **AP compatible** | All implementations                                  | Lightweb (+ future MLS-capable servers)           |
+| **Encryption**    | None (standard AP transport)                         | Always E2EE (MLS)                                 |
+| **RCS features**  | None (typing, read receipts, presence unavailable)   | Full (typing indicators, read receipts, presence) |
+| **Delivery**      | AP inbox (polling)                                   | WebSocket real-time + 5s fallback                 |
+| **Requires**      | `messaging.allow_insecure_dm` or sender on allowlist | Mutual allowlist (both parties friend each other) |
+
+Both types are rendered in the **same chat thread column** — the user sees one conversation, not two. Per-message indicators show encryption and RCS status.
+
+#### Conversation Lifecycle — The Upgrade Path
+
+Every 1:1 conversation follows a state machine driven by the mutual allowlist state of the two parties:
+
+```
+CONVERSATION STATES (per contact pair)
+═══════════════════════════════════════════════════════════════
+
+  ┌─────────────────────────────────────────────────────┐
+  │  State 1: FEDERATED DM                              │
+  │  Wire type: Note (private addressing)               │
+  │  Encryption: ❌ None (standard AP)                  │
+  │  RCS: ❌ Not available                              │
+  │  Requires: config allows insecure DMs, OR           │
+  │            sender is on recipient's allowlist        │
+  │  Works with: any AP server (Mastodon, Pleroma, etc) │
+  └──────────────────────┬──────────────────────────────┘
+                         │
+                    both parties
+                  mutually allowlist
+                    (friend each other)
+                         │
+                         ▼
+  ┌─────────────────────────────────────────────────────┐
+  │  State 2: ENCRYPTED CHAT                            │
+  │  Wire type: ChatMessage (MLS group)                 │
+  │  Encryption: ✅ Always (MLS)                        │
+  │  RCS: ✅ Active (typing, read receipts, presence)   │
+  │  Requires: both parties on Lightweb (or MLS-capable)│
+  │  MLS group created automatically on mutual allowlist│
+  └─────────────────────────────────────────────────────┘
+```
+
+The upgrade is **per-relationship, not per-message.** Once both sides allowlist each other, the MLS group is established and all future messages use `ChatMessage`. Historical federated DM `Note` objects remain visible in the thread but are permanently marked as unencrypted.
+
+**Upgrade trigger:** When the second party adds the first to their allowlist (making it mutual):
+
+1. Initiating server creates an MLS group `[alice, bob]`
+2. Sends MLS Welcome message to the other party's server
+3. Conversation `mode` flips from `"federated"` to `"encrypted"`
+4. System message inserted in thread: _"Messages are now encrypted"_ and _"Real-time chat active"_
+5. WebSocket channel established — RCS features activate
+6. All future messages in this thread are `ChatMessage`
+
+The upgrade is **irreversible** — removing a contact from the allowlist ends the conversation, it does not downgrade it back to federated DM.
+
+**Federated DM acceptance rules:**
+
+| `messaging.allow_insecure_dm` | Sender on allowlist? | Result                              |
+| ----------------------------- | -------------------- | ----------------------------------- |
+| `false`                       | No                   | DM silently rejected (default-deny) |
+| `false`                       | Yes (one-way)        | DM accepted as federated `Note`     |
+| `true`                        | No                   | DM accepted as federated `Note`     |
+| `true`                        | Yes (one-way)        | DM accepted as federated `Note`     |
+| either                        | Yes (mutual)         | Upgrade to `ChatMessage` + MLS      |
 
 #### The ChatMessage Object Type
 
-`ChatMessage` is a dedicated `LightwebObject` type with `encryption: "required"` in its extension manifest. It is structurally separate from `Note` (social post) — they are never conflated.
+`ChatMessage` is a dedicated `LightwebObject` type with `encryption: "required"` in its extension manifest. It is structurally separate from `Note` — they are never conflated at the wire level.
 
 ```jsonc
 {
@@ -547,49 +620,115 @@ Chat is a **first-class, primary feature** of Lightweb Browser v1 — equivalent
 
 #### Conversation Model
 
-A conversation is an ActivityPub `OrderedCollection` — a persistent ordered set of `ChatMessage` objects between a fixed set of actors. It maps 1:1 to an MLS group.
+A conversation is an ActivityPub `OrderedCollection` with a `mode` that tracks the current lifecycle state. Before upgrade, it contains `Note` objects; after upgrade, `ChatMessage` objects. Both coexist in the same ordered timeline.
 
 ```
 Conversation (OrderedCollection)
   ├── id: https://alice.lightweb.cloud/conversations/xyz
-  ├── type: "OrderedCollection"     // native AP type with Lightweb namespace properties
-  ├── members: [alice, bob]         // or [alice, bob, carol, ...]
-  ├── hostServer: alice.lightweb.cloud   // MLS Delivery Service
-  └── messages: [ChatMessage, ...]  // ordered, oldest first
+  ├── type: "OrderedCollection"
+  ├── members: [alice, bob]              // or [alice, bob, carol, ...]
+  ├── lwMetadata:
+  │     ├── mode: "federated" | "encrypted"   // current lifecycle state
+  │     ├── mlsGroupId?: "mls-group-uuid"     // set on upgrade to encrypted
+  │     ├── mlsEpoch?: 42
+  │     ├── upgradedAt?: "2026-02-17T14:00:00Z"
+  │     └── hostServer?: alice.lightweb.cloud  // MLS Delivery Service (encrypted only)
+  └── messages: [(Note | ChatMessage), ...]   // mixed timeline, ordered oldest first
 ```
+
+#### AP Inbox Handling — Federated DMs
+
+When a private `Note` arrives at the AP inbox (a `Note` addressed to only this actor with no public/followers audience):
+
+```
+Incoming private Note
+        │
+        ▼
+  ┌─────────────────────────┐
+  │ Is insecure DM allowed  │
+  │ for this sender?        │──── No ───▶ Silently reject
+  │ (config or allowlist)   │
+  └──────── Yes ────────────┘
+        │
+        ▼
+  ┌─────────────────────────┐
+  │ Find or create          │
+  │ Conversation            │
+  │ (mode: "federated")     │
+  └─────────────────────────┘
+        │
+        ▼
+  ┌─────────────────────────┐
+  │ Is mutual allowlist     │
+  │ now established?        │──── Yes ───▶ Create MLS group, upgrade
+  └──────── No ─────────────┘              conversation, notify both
+        │
+        ▼
+  Store Note in Conversation
+```
+
+**Outgoing message routing** is determined by conversation mode:
+
+- `mode: "federated"` → send as `Note` with private addressing (standard AP)
+- `mode: "encrypted"` → send as `ChatMessage` with MLS encryption
 
 #### Arriving in the Feed
 
-Incoming chat messages arrive as **`ChatMessage` cards in the home feed**, alongside posts and other events. They are visually distinct (e.g. chat bubble icon, sender avatar, message preview). There is no separate inbox.
+Incoming messages — both federated DMs (`Note`) and encrypted chat (`ChatMessage`) — arrive as **chat cards in the home feed**, alongside posts and other events. They are visually distinct (chat bubble icon, sender avatar, message preview). There is no separate inbox.
+
+Chat cards display a small indicator: 🔓 for unencrypted federated DMs, 🔒 for E2EE messages.
 
 Tapping or focusing a chat card and swiping left opens the **full chat thread** as a new column. On mobile (1-column), this is full screen. On tablet/web, it opens as the right column.
 
-#### Chat Thread Column
+#### Chat Thread Column — Unified View with Indicators
 
 ```
-CHAT THREAD COLUMN (full screen on mobile)
-┌─────────────────────────────────────┐
-│  ← @alice                           │  ← swipe right anywhere = back to feed
-│                                     │
-│  Hey are you free tonight?          │  alice (oldest)
-│                          Yeah! Why? │  you
-│  Want to grab dinner?               │  alice
-│                    Sure, where?     │  you
-│  That new place on Main St 🍜       │  alice (newest, at bottom)
-│                                     │
-├─────────────────────────────────────┤
-│  Reply to @alice…           [Send]  │
-└─────────────────────────────────────┘
+CHAT THREAD — @bob@mastodon.social
+┌─────────────────────────────────────────┐
+│  ← @bob@mastodon.social                 │
+│                                         │
+│  Hey, saw your post about MLS     🔓    │  ← Note (federated DM)
+│                          Thanks!  🔓    │  ← Note (federated DM)
+│                                         │
+│  ── @bob added you as a friend ──       │  ← system: mutual allowlist
+│  ── 🔒 Messages are now encrypted ──   │
+│  ── 📡 Real-time chat active ──        │
+│                                         │
+│  So about that MLS paper...       🔒📡 │  ← ChatMessage (E2EE + RCS)
+│                     Reading it now 🔒📡 │  ← ChatMessage (E2EE + RCS)
+│                          ✓✓ read        │  ← read receipt (RCS)
+│                                         │
+│  bob is typing…                         │  ← typing indicator (RCS)
+├─────────────────────────────────────────┤
+│  Reply to @bob…                  [Send] │
+└─────────────────────────────────────────┘
 ```
+
+**Per-message indicators:**
+
+| Indicator | Meaning                                                           |
+| --------- | ----------------------------------------------------------------- |
+| 🔓        | Unencrypted (federated DM via standard AP)                        |
+| 🔒        | End-to-end encrypted (ChatMessage via MLS)                        |
+| 📡        | RCS active (real-time delivery, typing indicators, read receipts) |
+
+**Indicator combinations in practice:**
+
+| Conversation mode | E2EE | RCS | Notes                                          |
+| ----------------- | ---- | --- | ---------------------------------------------- |
+| Federated         | ❌   | ❌  | Standard AP DM — any implementation            |
+| Encrypted         | ✅   | ✅  | Mutual allowlist — ChatMessage always has both |
+
+RCS requires `ChatMessage`, and `ChatMessage` is always E2EE, so RCS is always encrypted. The indicators are shown independently to communicate _why_ — users understand real-time chat requires mutual trust.
 
 - Newest messages at the bottom — same chronological convention as the feed
-- Real-time delivery via WebSockets; fallback polling every 5s
-- Read receipts: delivered / read states tracked per message per member
+- Real-time delivery via WebSockets when in encrypted mode; AP inbox polling when federated
+- Read receipts and typing indicators: only available in encrypted mode (RCS)
 - Message states visible to sender only (no read receipt broadcasting by default — configurable)
 
 #### Group Chat
 
-Group conversations work identically to 1:1, with the following additions:
+Group conversations work identically to 1:1 encrypted chat, with the following additions. Group chat is **always encrypted** — there is no federated DM mode for groups (groups require `ChatMessage` + MLS from creation).
 
 - Group has a name, optional avatar, and a member list
 - The **creator's server** is the MLS Delivery Service (host server) for the group
@@ -609,6 +748,8 @@ If the host server goes offline, the **oldest remaining member's server** automa
 #### Initiating a New Chat
 
 No buttons. The user focuses any card from another user and types a message in the input bar. The LLM infers intent and creates a new conversation if one doesn't exist, or routes to the existing thread if it does. The user never thinks about "creating a conversation."
+
+If the recipient is on a remote non-Lightweb server, the message is sent as a federated DM (`Note` with private addressing). If the recipient is on Lightweb and mutual allowlist exists, it goes as `ChatMessage`. The user doesn't choose — the system selects the best available transport.
 
 ---
 
@@ -898,16 +1039,17 @@ The `lwMetadata.displayHint` field tells the client **how to render** the collec
 
 ### 9.6 Type → Action Vocabulary
 
-| Object type         | Available actions                    | Reviewable                | Encrypted |
-| ------------------- | ------------------------------------ | ------------------------- | --------- |
-| `Note`              | Reply, Like, Boost, Delete           | ✅ Yes                    | ❌ No     |
-| `ChatMessage`       | Reply, Delete                        | ❌ No                     | ✅ Always |
-| `TrustRequest`      | Approve, Escalate                    | ❌ No                     | ✅ Always |
-| `TrustGrant`        | Revoke                               | ❌ No                     | ✅ Always |
-| `Review`            | Like, Boost, Delete                  | ❌ No                     | ❌ No     |
-| `Product`           | Purchase, Save, Share, Review, React | ✅ Yes                    | ❌ No     |
-| `MediaItem`         | Play, Save, Share, Review, React     | ✅ Yes                    | ❌ No     |
-| `OrderedCollection` | Browse, Save, Share, React           | 🟡 Inherits from children | ❌ No     |
+| Object type         | Available actions                    | Reviewable                | Encrypted           |
+| ------------------- | ------------------------------------ | ------------------------- | ------------------- |
+| `Note` (public)     | Reply, Like, Boost, Delete           | ✅ Yes                    | ❌ No               |
+| `Note` (private DM) | Reply, Delete                        | ❌ No                     | ❌ No (standard AP) |
+| `ChatMessage`       | Reply, Delete                        | ❌ No                     | ✅ Always (MLS)     |
+| `TrustRequest`      | Approve, Escalate                    | ❌ No                     | ✅ Always           |
+| `TrustGrant`        | Revoke                               | ❌ No                     | ✅ Always           |
+| `Review`            | Like, Boost, Delete                  | ❌ No                     | ❌ No               |
+| `Product`           | Purchase, Save, Share, Review, React | ✅ Yes                    | ❌ No               |
+| `MediaItem`         | Play, Save, Share, Review, React     | ✅ Yes                    | ❌ No               |
+| `OrderedCollection` | Browse, Save, Share, React           | 🟡 Inherits from children | ❌ No               |
 
 ### 9.7 Tags — Filtering and Discovery
 
@@ -1121,15 +1263,16 @@ NEW DEVICE / ACCOUNT RECOVERY (Device B)
 
 Encryption is defined **per object type in the extension manifest**, not as a blanket system policy. The `encryption` field in each manifest is one of `"required"`, `"optional"`, or `"none"`.
 
-| Object type                      | Encryption               | Defined in manifest      |
-| -------------------------------- | ------------------------ | ------------------------ |
-| `ChatMessage`                    | ✅ Required (MLS)        | `encryption: "required"` |
-| `TrustRequest` / `TrustGrant`    | ✅ Required (MLS)        | `encryption: "required"` |
-| `Note` (public post)             | ❌ None                  | `encryption: "none"`     |
-| `Review`                         | ❌ None                  | `encryption: "none"`     |
-| `Product` / `MediaItem`          | ❌ None (public objects) | `encryption: "none"`     |
-| HTTP Signatures (all federation) | ✅ Ed25519 signing       | Transport layer          |
-| Config Registry                  | ❌ Server-side only      | Never on client          |
+| Object type                      | Encryption                      | Defined in manifest                                                             |
+| -------------------------------- | ------------------------------- | ------------------------------------------------------------------------------- |
+| `ChatMessage`                    | ✅ Required (MLS)               | `encryption: "required"`                                                        |
+| `TrustRequest` / `TrustGrant`    | ✅ Required (MLS)               | `encryption: "required"`                                                        |
+| `Note` (public post)             | ❌ None                         | `encryption: "none"`                                                            |
+| `Note` (private DM)              | ❌ None (standard AP transport) | N/A — standard AP `Note` with private addressing; not a Lightweb extension type |
+| `Review`                         | ❌ None                         | `encryption: "none"`                                                            |
+| `Product` / `MediaItem`          | ❌ None (public objects)        | `encryption: "none"`                                                            |
+| HTTP Signatures (all federation) | ✅ Ed25519 signing              | Transport layer                                                                 |
+| Config Registry                  | ❌ Server-side only             | Never on client                                                                 |
 
 ### 10.7 Objects That Require Encryption by Default
 
@@ -1211,6 +1354,17 @@ The Config Registry is the single source of truth for all system behaviour. It i
     "read_receipts": {
       "enabled": true, // on by default
       "posts_require_swipe": true, // post read receipt only on left-swipe connect
+    },
+  },
+
+  "messaging": {
+    "allow_insecure_dm": false, // default: reject federated DMs from unknown senders
+    "allow_insecure_dm_from_allowlist": true, // even when above is false, one-way allowlisted
+    // contacts can send federated DMs (before mutual upgrade)
+    "rcs": {
+      "typing_indicators": true, // send typing events (encrypted mode only)
+      "read_receipts": true, // send read receipts (encrypted mode only)
+      "presence": true, // online/offline/last seen (encrypted mode only)
     },
   },
 
