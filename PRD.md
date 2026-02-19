@@ -38,17 +38,17 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 
 - No navigation tabs, no settings screens, no action menus
 - All user intent is expressed as natural language or gesture
-- The system infers what the user means based on what card is in focus
+- The system infers what the user means based on which card is in focus (if any)
 - When defaults are not enough, AI handles the remainder
 - Configuration is never the user's problem — it's the system's problem
 
 **"Layout is User-Controlled"**
 
-- The screen layout never changes without an explicit user gesture (swipe, scroll)
-- The LLM cannot rearrange columns or shift focus
-- Receiving a new message does not move or resize existing columns
-- Creating a new card does not auto-open a compose column
-- Only the user's physical gesture — swipe, tap, scroll — changes what they see
+- The screen layout never changes without an explicit user gesture (tap, scroll)
+- The LLM cannot rearrange panes or shift focus
+- Receiving a new message does not move or resize existing panes
+- Creating a new card does not auto-open the content pane
+- Only the user's physical gesture — tap, scroll — changes what they see
 
 **"Allowlist, Never Deny"**
 
@@ -101,12 +101,12 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 ### 4.1 In Scope (v1.0 Launch)
 
 - ✅ User registration and login (SSO only — Google and Apple)
-- ✅ Single-screen column navigator — 1 column on mobile by default, 2–3 on tablet; always user-configurable per device
+- ✅ Two-pane layout — feed pane (left) + content pane (right); on mobile, tapping a card replaces the feed with the content view
 - ✅ Feed as unified inbox — all events (messages, replies, follows, trust requests) arrive as cards; no separate notifications
-- ✅ One card always in focus (default to latest); persistent context-aware input bar always visible
-- ✅ Symmetric swipe — swipe any card left or right to open its detail view (remote feed, chat thread, etc.) as a new column in the direction of the swipe
+- ✅ At most one card in focus (no card focused = general AI conversation); persistent context-aware input bar always visible
+- ✅ Tap to open — tap any card to open its detail view (article, chat thread, remote feed, etc.) in the content pane
 - ✅ AI-default input — input bar routes through LLM by default; switches to direct keyboard for chat threads and content creation
-- ✅ Content creation flow — LLM creates unsent draft cards in the feed; user composes via swipe-to-column or inline LLM dictation
+- ✅ Content creation flow — LLM creates draft and opens it in the content pane for direct editing, or user dictates content inline via LLM
 - ✅ **Chat-first messaging** — 1:1 and group chat, WhatsApp-equivalent, E2EE via MLS
 - ✅ **Federated DMs** — cross-implementation direct messaging via standard AP private `Note` objects; default-deny, configurable per account
 - ✅ **Conversation upgrade** — federated DMs automatically upgrade to encrypted `ChatMessage` + RCS when both parties have mutual `Relationship` objects satisfying the `encrypted_chat` permission rule; unified chat thread UI with per-message encryption and RCS indicators
@@ -115,7 +115,6 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 - ✅ Automatic group host migration — oldest remaining member's server takes over
 - ✅ ActivityPub federation (inbox, outbox, followers, following, WebFinger)
 - ✅ Native iOS and Android apps
-- ✅ Meta Quest client (voice-first VR/AR — single controller, no visible text input by default)
 - ✅ Web client (Next.js shell embedding the shared mobile UI component)
 - ✅ Server-side LLM processor (Claude by default; swappable via config)
 - ✅ In-memory JSON configuration registry (single source of truth for all config)
@@ -142,7 +141,6 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 - ❌ Stories / ephemeral content
 - ❌ Monetization / creator tools
 - ❌ Admin moderation dashboard (manual DB tooling only at launch)
-- ❌ Comments (replaced by native `Like`/`Dislike`/`Note` review mechanism)
 - ❌ ECommerce tooling
 
 ---
@@ -176,7 +174,7 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
                     │  │  Web Shell (SSR)                           │   │
                     │  │  - React Server Components                 │   │
                     │  │  - Embeds shared RN UI via react-native-web│   │
-                    │  │  - Minimal client JS (swipe, WS, focus)    │   │
+                    │  │  - Minimal client JS (WS, focus, anim)     │   │
                     │  └─────────────┬──────────────────────────────┘   │
                     │                │                                  │
                     │  ┌─────────────▼──────────┐                       │
@@ -214,19 +212,18 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 
 ### 5.2 Technology Choices
 
-| Layer                   | Technology                              | Rationale                                                         |
-| ----------------------- | --------------------------------------- | ----------------------------------------------------------------- |
-| Mobile frontend         | **React Native** (via Expo)             | Native components on iOS & Android                                |
-| Quest frontend          | **React Native** + OpenXR bridge        | Voice-first VR/AR client; shares `packages/ui`; single controller |
-| Unified server          | **Next.js 14+** (App Router)            | Single process: API routes, AP engine, LLM client, SSR web shell  |
-| Code sharing            | **Solito** + **react-native-web**       | Shared UI components + navigation across RN and Next.js           |
-| Language                | **TypeScript** throughout               | Monorepo type safety end to end                                   |
-| Database                | **Managed PostgreSQL** (e.g. Supabase)  | Separate DB per user; connection pooling by provider              |
-| Cache / realtime        | **Redis** (local sidecar per container) | Feed caching, sessions, pub/sub for real-time chat                |
-| Object storage          | **S3-compatible** (e.g. Cloudflare R2)  | Shared media hosting across all users                             |
-| Monorepo tooling        | **Turborepo**                           | Shared packages, incremental builds                               |
-| Initial LLM provider    | **Claude (Anthropic)**                  | External API calls; swappable via config registry                 |
-| Container orchestration | **Kubernetes** (GKE / GCP)              | One container per user; cluster-level scaling                     |
+| Layer                   | Technology                              | Rationale                                                        |
+| ----------------------- | --------------------------------------- | ---------------------------------------------------------------- |
+| Mobile frontend         | **React Native** (via Expo)             | Native components on iOS & Android                               |
+| Unified server          | **Next.js 14+** (App Router)            | Single process: API routes, AP engine, LLM client, SSR web shell |
+| Code sharing            | **Solito** + **react-native-web**       | Shared UI components + navigation across RN and Next.js          |
+| Language                | **TypeScript** throughout               | Monorepo type safety end to end                                  |
+| Database                | **Managed PostgreSQL** (e.g. Supabase)  | Separate DB per user; connection pooling by provider             |
+| Cache / realtime        | **Redis** (local sidecar per container) | Feed caching, sessions, pub/sub for real-time chat               |
+| Object storage          | **S3-compatible** (e.g. Cloudflare R2)  | Shared media hosting across all users                            |
+| Monorepo tooling        | **Turborepo**                           | Shared packages, incremental builds                              |
+| Initial LLM provider    | **Claude (Anthropic)**                  | External API calls; swappable via config registry                |
+| Container orchestration | **Kubernetes** (GKE / GCP)              | One container per user; cluster-level scaling                    |
 
 ### 5.3 Web Client Strategy
 
@@ -235,11 +232,10 @@ The web client is a **Next.js application** that serves two roles in one process
 1. **Shell:** Next.js handles routing, auth, SSR metadata, and the outer browser chrome via React Server Components
 2. **Embedded UI:** The exact same React Native UI component used on mobile is embedded inside the shell via `react-native-web` and Solito
 
-This means the mobile UI and web UI share **identical code.** The web shell adds browser-native affordances (URL routing, tab title, keyboard shortcut hints). The core feed, input bar, and swipe interactions are the same on all platforms.
+This means the mobile UI and web UI share **identical code.** The web shell adds browser-native affordances (URL routing, tab title, keyboard shortcut hints). The core feed, input bar, and tap interactions are the same on all platforms.
 
 **Minimal client-side JavaScript.** The web shell is primarily server-side rendered. Client-side JS is limited to interactive features that require it:
 
-- Swipe gesture handling (touch/pointer events)
 - WebSocket connection for real-time chat delivery
 - Card focus tracking and input bar state
 - Animation transitions (~300ms ease-in-out)
@@ -248,69 +244,7 @@ This is a thin interactive layer, not a full client-side application. The same R
 
 > 📌 The web experience intentionally looks and feels like a mobile app running in a browser — this is by design, not a limitation.
 
-### 5.4 Meta Quest Client — Voice-First VR/AR
-
-The Meta Quest client is a **voice-first** adaptation of the Lightweb column navigator. It reuses the shared UI component layer but replaces the persistent text input bar with voice input as the primary interaction mode. Only one Quest controller is needed.
-
-#### Controller Mapping
-
-| Controller input   | Action         | Notes                                                                                                                                      |
-| ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Joystick**       | Swipe & scroll | Up/down scrolls the feed vertically; left/right performs symmetric swipe navigation — direction determines column placement (same as §7.3) |
-| **Trigger (hold)** | Voice input    | Press and hold to speak; release to submit. Equivalent to typing in the input bar — LLM or direct depending on active column type          |
-
-#### Key Differences from Mobile/Web
-
-- **No visible text input bar by default.** The input bar is hidden; all user intent is expressed via voice while holding the trigger. The input bar can be summoned via voice command (_"show keyboard"_) or via LLM for cases requiring precise text entry (URLs, passwords), at which point a virtual keyboard appears
-- **Single controller only.** The entire interaction model — scrolling, swiping, and speaking — is operable with one hand on one controller
-- **Focus follows gaze + joystick.** Card focus is determined by a combination of head gaze and joystick position, replacing tap-to-focus
-- **Voice is contextual.** The same context-dependent behaviour from §7.2 applies — what the voice input does depends on the focused card and active column type. Holding the trigger on a chat thread and saying "sounds good" sends a direct reply; holding the trigger on the home feed with a card focused and saying "unfollow" routes through the LLM to dispatch the action
-
-#### Voice Input Flow
-
-```
-User holds trigger
-       │
-       ▼
-Audio captured → streamed to server (WebSocket)
-       │
-       ▼
-Server-side speech-to-text (provider-abstracted)
-       │
-       ▼
-Transcribed text processed identically to typed input bar submission
-  - Same focused card context
-  - Same active column type routing (LLM vs direct, per §7.2)
-       │
-       ▼
-Response rendered as card / chat bubble + optional TTS playback
-```
-
-#### Speech Provider Abstraction
-
-Speech-to-text follows the same provider pattern as §5.8 (Provider Abstractions):
-
-```typescript
-// Speech — voice input transcription
-interface SpeechProvider {
-  transcribe(audioStream: ReadableStream): Promise<string>;
-}
-// Registered: WhisperProvider | DeepgramProvider | QuestNativeProvider
-// Active: config.speech.provider
-```
-
-#### Platform Integration
-
-- Built with **React Native** via the Quest fork / react-native-openxr bridge, sharing the `packages/ui` component layer
-- Column navigator renders as a curved panel in 3D space — same column model, spatially arranged
-- Swipe animations map to joystick-driven panel transitions
-- Audio capture uses the Quest's built-in microphone array
-
-> 📌 The Quest client proves the core design thesis: because all interaction flows through one input mechanism (the input bar), swapping text for voice requires no architectural changes — only an input adapter.
-
----
-
-### 5.5 Single-User-Per-Server Model
+### 5.4 Single-User-Per-Server Model
 
 Every Lightweb user gets a **dedicated container** — one user, one server, one domain. The user's domain _is_ their identity (e.g. `@alice@alice.lightweb.cloud`).
 
@@ -323,7 +257,7 @@ Every Lightweb user gets a **dedicated container** — one user, one server, one
 
 **WebFinger** (RFC 7033) is still required for federation interop — other AP servers expect to resolve `@user@domain` via `/.well-known/webfinger`. In a single-user-per-server model this is trivially implemented (always returns the one user) but must exist for other servers to discover and follow this actor.
 
-### 5.6 Consolidated Single-Process Architecture
+### 5.5 Consolidated Single-Process Architecture
 
 All server-side functionality runs in a **single Next.js process** per container. There are no separate microservices.
 
@@ -339,7 +273,7 @@ All server-side functionality runs in a **single Next.js process** per container
 
 **Why not microservices:** With one user per container, there is no concurrency benefit from splitting services. A single process eliminates inter-process communication overhead, simplifies deployment, and reduces memory footprint (~100–150 MB total per container vs ~300+ MB for three separate Node.js processes).
 
-### 5.7 Infrastructure Split — Per-Container vs Shared
+### 5.6 Infrastructure Split — Per-Container vs Shared
 
 Each user container runs locally:
 
@@ -355,7 +289,7 @@ Shared infrastructure (managed, external to containers):
 
 **Container capacity estimate:** On a 3-node GCP cluster (e2-medium, 4 GB RAM each, ~$75/month total), approximately 65–80 idle containers fit comfortably. Active containers with traffic consume more, so real-world capacity depends on usage patterns.
 
-### 5.8 Provider Abstractions
+### 5.7 Provider Abstractions
 
 All infrastructure dependencies are accessed through provider interfaces, configured via the Config Registry. Active providers are resolved at startup. Switching any provider requires only a config change and restart — no code changes.
 
@@ -434,50 +368,48 @@ interface QueueProvider {
 
 ## 7. Feature Requirements
 
-### 7.1 Feed UI — Column Navigator Model
+### 7.1 Feed UI — Feed + Content Pane Model
 
-The entire UI is built on a single primitive: the **column navigator**. There is one screen. It contains one or more columns. Swiping a card opens its detail view as a new column **in the direction of the swipe** — swipe right and the column opens to the right; swipe left and it opens to the left. Both directions perform the same action (drill into the card); the direction only determines column placement. There are no pages, no modals, no navigation stack in the traditional sense.
+The UI is built on a **two-pane model**: a **feed pane** on the left and a **content pane** on the right. Tapping any card in the feed opens its detail view in the content pane. There are no pages, no modals, no navigation stack in the traditional sense.
 
-#### Column Count — Device Defaults & User Configuration
+#### Device Behaviour
 
-| Device         | Default columns | Minimum | Maximum |
-| -------------- | --------------- | ------- | ------- |
-| Mobile phone   | 1               | 1       | 1       |
-| Tablet (small) | 2               | 1       | 3       |
-| Tablet (large) | 3               | 1       | 4       |
-| Web (desktop)  | 2               | 1       | \*      |
+| Device       | Layout                                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------------------------ |
+| Mobile phone | Single pane — tapping a card **replaces** the feed with the content view; back gesture returns to feed |
+| Tablet       | Side-by-side — feed pane on left, content pane on right                                                |
+| Web          | Side-by-side — feed pane on left, content pane on right                                                |
 
-Column count is **user-configurable per device** via the Config Registry (via LLM: _"show me two columns on my phone"_). The device default is applied on first use only.
+#### What the Two Panes Are
 
-#### What a Column Is
-
-Every column is a **vertical scrolling feed** of cards, with the persistent input bar anchored at the bottom. The leftmost column is always the home feed by default. Additional columns open in the direction of the swipe, each representing a different context (remote feed, chat thread, etc.).
+The **feed pane** is a vertical scrolling feed of cards with the persistent input bar anchored at the bottom. It is always the home feed. The **content pane** displays the detail view for whatever card was last tapped — a chat thread, a remote feed, an article, a compose view, etc.
 
 ```
-1 COLUMN (mobile default)        2 COLUMNS (after right-swipe on Card B)
+MOBILE (single pane)             TABLET / WEB (side-by-side)
+
 ┌──────────────────────┐         ┌───────────┬──────────────────┐
-│  HOME FEED           │         │ HOME FEED │ CHAT / REMOTE    │
+│  HOME FEED           │         │ HOME FEED │ CONTENT          │
 │                      │         │           │                  │
-│  [Card A]            │         │ [Card A]  │ [Message 1]      │
-│ ╔════════════╗       │         │╔═════════╗│ [Message 2]      │
-│ ║[Card B]    ║ focus │  swipe  │║[Card B] ║│ [Message 3]      │
-│ ╚════════════╝       │ ──────▶ │╚═════════╝│                  │
-│  [Card C]            │  right  │ [Card C]  │                  │
-│                      │         │           │                  │
+│  [Card A]            │         │ [Card A]  │ (detail view of  │
+│ ╔════════════╗       │         │╔═════════╗│  tapped card)    │
+│ ║[Card B]    ║ focus │  tap    │║[Card B] ║│                  │
+│ ╚════════════╝       │ ──────▶ │╚═════════╝│ [Message 1]      │
+│  [Card C]            │         │ [Card C]  │ [Message 2]      │
+│                      │         │           │ [Message 3]      │
 ├──────────────────────┤         ├───────────┼──────────────────┤
 │  [Ask anything…    ] │         │[Ask…    ] │ [Type a message] │
 └──────────────────────┘         └───────────┴──────────────────┘
 ```
 
-On a 1-column device, swiping replaces the current column entirely — the home feed slides off-screen in the opposite direction of the swipe, and the detail view takes over full screen. Swiping back in the opposite direction restores the home feed. On multi-column devices, the new column is added in the swipe direction; existing columns compress to make room.
+On mobile, tapping a card replaces the feed full-screen with the content view. A back gesture (swipe-back or system back button) returns to the feed. On tablet/web, the content pane updates in place — the feed remains visible and scrollable alongside it.
 
 **Accessibility First**
 
-It is critical that the input bar be anchored at the bottom for all interaction because pointing by finger is a nightmare for precision, especially while you're old and can't see.
+It is critical that the input bar be anchored at the bottom for all interaction because pointing by finger is a nightmare for precision and minor disabilities.
 
-#### One Card Always In Focus
+#### Card Focus
 
-Across all columns, exactly **one card is in focus** at any time — the last card tapped or scrolled to. The input bar at the bottom of each column reflects the focused card in that column. When focus moves to a card in a different column, that column's input bar becomes active.
+At most **one card is in focus** at any time — the last card tapped or scrolled to. The input bar reflects the context of the active pane. If no card is in focus, the input bar defaults to general AI conversation — the LLM receives the input without card context and handles it as a freeform request (e.g. _"text steve"_, _"change my bio"_, _"create a stream called Photography"_).
 
 ---
 
@@ -485,18 +417,18 @@ Across all columns, exactly **one card is in focus** at any time — the last ca
 
 The input bar is ostensibly the **only** interactive control in the entire UI. It is permanently anchored to the bottom of the screen, above the system keyboard.
 
-**There are no buttons or other inputs anywhere in the app (ostensibly).**
+**There are ideally no buttons or other inputs anywhere in the app**
 
 #### Input Mode — Determined by Object Type
 
-The input bar operates in one of two modes: **LLM** (input is sent to the server-side LLM for interpretation) or **Direct** (input is sent as-is, like a keyboard). The mode is determined by the **type of content in the active column**, not by a user-toggled setting or swipe direction.
+The input bar operates in one of two modes: **LLM** (input is sent to the server-side LLM for interpretation) or **Direct** (input is sent as-is, like a keyboard). The mode is determined by the **type of content in the active pane**, not by a user-toggled setting.
 
-| Active column content                           | Input mode | Placeholder            | Behaviour                                                     |
+| Active pane content                             | Input mode | Placeholder            | Behaviour                                                     |
 | ----------------------------------------------- | ---------- | ---------------------- | ------------------------------------------------------------- |
 | Home feed — card in focus                       | **LLM**    | `Ask anything…`        | LLM receives input + focused card context; dispatches actions |
 | Home feed — no card in focus                    | **LLM**    | `Ask anything…`        | LLM receives input as general request (e.g. "text steve")     |
 | Chat thread (`OrderedCollection<ChatMessage>`)  | **Direct** | `Type a message…`      | Keystrokes sent as chat message (encrypted or federated)      |
-| Draft card in compose column                    | **Direct** | `Write your post…`     | Keystrokes compose the draft content directly                 |
+| Draft in content pane                           | **Direct** | `Write your post…`     | Keystrokes compose the draft content directly                 |
 | Remote feed (`OrderedCollection<Note/Article>`) | **LLM**    | `Ask about this feed…` | LLM receives input + feed/card context; dispatches actions    |
 | Trust context view                              | **LLM**    | `Ask anything…`        | LLM receives input + trust request context                    |
 
@@ -504,34 +436,30 @@ The input bar operates in one of two modes: **LLM** (input is sent to the server
 
 #### Mode Switching
 
-Modes change **only** via gesture (swipe) or focus change. There is no button, icon, or control to change the input mode. The user never thinks about modes — they only think about what card they're looking at and what column they're in.
+Modes change **only** when the content pane updates or focus changes. There is no button, icon, or control to change the input mode. The user never thinks about modes — they only think about what card they're looking at and what they're viewing.
 
 ---
 
-### 7.3 Swipe Interactions — The Column Navigator in Action
+### 7.3 Tap Interactions — Opening Content
 
-All navigation is expressed as horizontal swipes on cards. **Both left and right swipes perform the same action** — drill into the swiped card's detail view — but the new column opens **in the direction of the swipe.** Swipe right and the detail column appears to the right; swipe left and it appears to the left. There are no other navigation gestures (except for vertical scroll).
+All navigation from feed to content is expressed as **taps on cards.** Tapping a card opens its detail view in the content pane. On mobile, this replaces the feed full-screen; on tablet/web, the content pane updates alongside the feed.
 
-#### Swipe (Either Direction) → Opens Detail Column (Context-Dependent)
+#### Tap → Opens Content Pane (Context-Dependent)
 
-The content of the new column depends on the **type of the swiped card:**
+The content of the content pane depends on the **type of the tapped card** and whether it connects to a remote server:
 
-| Swiped card type                      | New column content                                         |
-| ------------------------------------- | ---------------------------------------------------------- |
-| `Note` / `Article` from remote server | Origin server's public feed, card in chronological context |
-| `ChatMessage` (incoming message)      | Full E2EE chat thread with that contact or group           |
-| `TrustRequest`                        | Trust context for that request                             |
-| Follow / activity notification card   | That actor's feed                                          |
-| Stream card                           | That stream's topic feed                                   |
-| Draft card (unsent)                   | Compose view for that draft                                |
-
-On a 1-column device (mobile default), the new content **replaces** the current column — the home feed slides off-screen in the opposite direction and the detail view takes over full screen. Swiping back in the opposite direction restores the home feed. On a 2+ column device, the new column is added in the swipe direction; existing columns compress to make room.
-
-**Why symmetric swipe?** Users can arrange their workspace however they prefer. Swipe a chat right to open it beside the feed, or swipe it left to open it on the other side. On multi-column devices this gives spatial flexibility — the user controls the layout, not the system.
+| Tapped card type                      | Content pane shows                               | Connects to remote?                     |
+| ------------------------------------- | ------------------------------------------------ | --------------------------------------- |
+| `Note` / `Article` from remote server | Full article or post content                     | Yes — fetches full object from origin   |
+| `ChatMessage` (incoming message)      | Full E2EE chat thread with that contact or group | No — local data + WebSocket             |
+| `TrustRequest`                        | Trust context for that request                   | No — local                              |
+| Follow / activity notification card   | That actor's feed                                | Yes — fetches actor's outbox            |
+| Stream card                           | That stream's topic feed                         | Depends — local if own, remote if other |
+| Draft card (unsent)                   | Compose view for that draft                      | No — local                              |
 
 #### AI Without a Mode — LLM as Default Input
 
-There is no dedicated "AI mode" or "AI pane." The LLM is the **default input handler** on the home feed and any non-chat detail column. Users interact with the LLM simply by typing (or speaking) while a card is in focus.
+There is no dedicated "AI mode" or "AI pane." The LLM is the **default input handler** on the home feed and any non-chat content view. Users interact with the LLM simply by typing (or speaking) while a card is in focus.
 
 **Example LLM interactions from the home feed:**
 
@@ -547,76 +475,92 @@ There is no dedicated "AI mode" or "AI pane." The LLM is the **default input han
 
 #### The Home Feed as Unified Inbox
 
-The home feed is the **single inbox for all events** — messages, status updates, articles, follow notifications, trust requests, likes, dislikes. There are no separate notification screens, badge counts, or inbox/feed distinctions. Users can also create **streams** — topic-specific feeds that curate a subset of their content (see §9.13). Streams appear as swipeable cards in the home feed and as entries in the actor's `streams` property for federated discovery.
+The home feed is the **single inbox for all events** — messages, status updates, articles, follow notifications, trust requests, likes, dislikes. There are no separate notification screens, badge counts, or inbox/feed distinctions. Users can also create **streams** — topic-specific feeds that curate a subset of their content (see §9.13). Streams appear as cards in the home feed and as entries in the actor's `streams` property for federated discovery.
 
 ```
 HOME FEED — unified inbox (newest at bottom)
 ┌─────────────────────────────────────┐
-│  📣 @bob: "Check this out"           │  ← Note  — swipe → remote feed
+│  📣 @bob: "Check this out"           │  ← Note  — tap → full article
 │                                     │
-│  🔔 @carol followed you             │  ← Follow — swipe → @carol's feed
+│  🔔 @carol followed you             │  ← Follow — tap → @carol's feed
 │                                     │
-│  🔒 Trust request from @child       │  ← TrustRequest — swipe → trust view
+│  🔒 Trust request from @child       │  ← TrustRequest — tap → trust view
 │                                     │
 │ ╔═════════════════════════════════╗ │
 │ ║ 💬 @alice: hey are you free?    ║ │  ← ChatMessage card — focused
-│ ╚═════════════════════════════════╝ │    swipe → opens full chat thread
+│ ╚═════════════════════════════════╝ │    tap → opens full chat thread
 ├─────────────────────────────────────┤
 │  Ask anything…              [Send]  │  ← Input bar: LLM mode (card in focus)
 └─────────────────────────────────────┘
 ```
 
-The input bar never moves. Its mode (LLM or direct) changes based on the object type of the active column (see §7.2).
-
-#### Swipe Mechanics
-
-- Commit threshold: `ui.swipe_commit_threshold` in Config Registry (default: 0.4 = 40% screen width)
-- Commit velocity: `ui.swipe_velocity_threshold` (default: 800px/s)
-- Below both thresholds: card springs back, no navigation
-- Animation: ~300ms ease-in-out; card motion physically continuous throughout
-- Must not conflict with vertical scroll or horizontal scroll within cards
+The input bar never moves. Its mode (LLM or direct) changes based on the content type of the active pane (see §7.2).
 
 ---
 
 ### 7.4 Content Creation Flow
 
-Content creation is initiated through the LLM and completed either inline or in a dedicated compose column. The system never auto-opens a compose view — the user controls when and whether to expand the draft (see "Layout is User-Controlled" in §1.4).
+Content creation is initiated through the LLM. When the user requests a new post, the LLM creates a draft and opens it directly in the content pane for editing.
 
 #### Creation Sequence
 
 ```
-Home feed, LLM mode, user types: "tweet"
+Home feed, LLM mode, user types: "new post"
        │
        ▼
-LLM creates a new DRAFT card at the bottom of the feed
+LLM creates a new DRAFT and opens it in the content pane
   - Type: Note (or Article, depending on LLM interpretation)
   - Status: unsent, unedited
-  - Card is automatically in focus
-  - Layout does NOT change — still on home feed
+  - Content pane switches to DIRECT mode
+  - On mobile: replaces feed with compose view
+  - On tablet/web: compose view opens in right pane
        │
        ▼
-User has two paths:
-       │
-       ├──▶ SWIPE the draft card → opens compose column
-       │      Input bar switches to DIRECT mode
-       │      User types content with keyboard
-       │      "Send" / "Post" submits the draft
-       │
-       └──▶ STAY on home feed → continue talking to LLM
-              "Make it about the weather" → LLM fills in content
-              "Add a photo" → LLM attaches media
-              "Post it" → LLM publishes the draft
+User types content directly in the content pane
+  - Or dictates via LLM from the feed pane: "Make it about the weather"
+  - "Post it" / "Send" submits the draft
 ```
 
 #### Draft Card States
 
-| State       | Visual indicator            | Input bar (if swiped to column) | Input bar (if on home feed) |
-| ----------- | --------------------------- | ------------------------------- | --------------------------- |
-| **Empty**   | Blank card, cursor blinking | `Write your post…` (Direct)     | `Ask anything…` (LLM)       |
-| **Drafted** | Content preview visible     | Direct editing                  | LLM can revise on request   |
-| **Sent**    | Normal card appearance      | N/A (no longer a draft)         | N/A                         |
+```
+1. BEFORE CREATION                 2. DRAFT OPENS IN CONTENT PANE
+   User types "new post"              (tablet/web — side-by-side)
 
-Draft cards are **local-only** until explicitly published. They are not federated, not visible to anyone else, and can be discarded at any time ("delete that draft" via LLM, or swipe-to-dismiss TBD).
+┌──────────────────────┐           ┌───────────┬──────────────────┐
+│  HOME FEED           │           │ HOME FEED │ COMPOSE          │
+│                      │           │           │                  │
+│  [Card A]            │           │ [Card A]  │ New Post         │
+│  [Card B]            │           │ [Card B]  │                  │
+│  [Card C]            │           │ [Card C]  │ (cursor blinking)│
+│                      │           │           │                  │
+│                      │           │           │                  │
+│                      │           │           │                  │
+├──────────────────────┤           ├───────────┼──────────────────┤
+│ [new post          >]│           │[Ask…    ] │[Write your post] │
+│  (LLM input)         │           │           │ (Direct input)   │
+└──────────────────────┘           └───────────┴──────────────────┘
+
+
+   MOBILE: "new post" replaces      MOBILE: compose view (full screen)
+   the feed entirely
+
+┌──────────────────────┐           ┌──────────────────────┐
+│  HOME FEED           │           │  COMPOSE             │
+│                      │           │                      │
+│  [Card A]            │           │  New Post             │
+│  [Card B]            │   LLM     │                      │
+│  [Card C]            │ ──────▶   │  (cursor blinking)   │
+│                      │  creates  │                      │
+│                      │  draft    │                      │
+│                      │           │                      │
+├──────────────────────┤           ├──────────────────────┤
+│ [new post          >]│           │ [Write your post…  ] │
+│  (LLM input)         │           │  (Direct input)      │
+└──────────────────────┘           └──────────────────────┘
+```
+
+Draft cards are **local-only** until explicitly published. They are not federated, not visible to anyone else, and can be discarded at any time ("delete that draft" via LLM).
 
 ---
 
@@ -627,7 +571,7 @@ The LLM client is **server-side only** — an HTTP client within the Next.js pro
 #### Request Flow
 
 ```
-Client sends: { userInput, focusedCardId, activeColumnType, conversationHistory }
+Client sends: { userInput, focusedCardId, activePaneType, conversationHistory }
        │
        ▼
 Next.js API route validates + enriches with full card ActivityPub object
@@ -669,7 +613,7 @@ Chat is a **first-class, primary feature** of Lightweb Browser v1 — equivalent
 | **Delivery**      | AP inbox (polling)                                                                       | WebSocket real-time + 5s fallback                                                  |
 | **Requires**      | `messaging.allow_insecure_dm` or sender matches `insecure_dm` permission rule (see §8.8) | Mutual `Relationship` objects matching `encrypted_chat` permission rule (see §8.8) |
 
-Both types are rendered in the **same chat thread column** — the user sees one conversation, not two. Per-message indicators show encryption and RCS status.
+Both types are rendered in the **same chat thread view** — the user sees one conversation, not two. Per-message indicators show encryption and RCS status.
 
 #### Conversation Lifecycle — The Upgrade Path
 
@@ -818,9 +762,9 @@ Incoming messages — both federated DMs (`Note`) and encrypted chat (`ChatMessa
 
 Chat cards display a small indicator: 🔓 for unencrypted federated DMs, 🔒 for E2EE messages.
 
-Tapping or focusing a chat card and swiping it (in either direction) opens the **full chat thread** as a new column in the direction of the swipe. On mobile (1-column), this replaces the feed full screen. On tablet/web, it opens as an adjacent column.
+Tapping a chat card opens the **full chat thread** in the content pane. On mobile, this replaces the feed full screen. On tablet/web, it opens in the right pane alongside the feed.
 
-#### Chat Thread Column — Unified View with Indicators
+#### Chat Thread View — Unified View with Indicators
 
 ```
 CHAT THREAD — @bob@mastodon.social
@@ -1762,7 +1706,7 @@ A **stream** is a topic-specific feed that an actor publishes alongside their ma
 - Publishing to a stream: LLM includes the `target` field pointing to the stream — _"post this to my photography stream"_
 - Followers can follow the actor (gets everything via outbox) or discover and follow individual streams for topic-specific content
 - Streams federate normally — remote actors can fetch any public stream via its `id` URL
-- On the home feed, own streams appear as swipeable cards; swiping opens the stream as a topic feed column
+- On the home feed, own streams appear as cards; tapping opens the stream as a topic feed in the content pane
 
 ---
 
@@ -1937,15 +1881,7 @@ The Config Registry is the single source of truth for all system behaviour. It i
   },
 
   "ui": {
-    "swipe_commit_threshold": 0.4,
-    "swipe_velocity_threshold": 800,
     "animation_duration_ms": 300,
-    "columns": {
-      "mobile_default": 1,
-      "tablet_default": 2,
-      "web_default": 2,
-      "user_override": null, // set per device by user via LLM
-    },
     "polling": {
       "background_feed_interval_ms": 60000, // home feed background refresh (default 60s)
       "remote_feed_interval_ms": 5000, // active remote feed when connected via WebSocket
@@ -1953,7 +1889,7 @@ The Config Registry is the single source of truth for all system behaviour. It i
     },
     "read_receipts": {
       "enabled": true, // on by default
-      "posts_require_swipe": true, // post read receipt only on swipe-to-connect
+      "posts_require_tap": true, // post read receipt only on tap-to-connect
     },
   },
 
@@ -2039,7 +1975,6 @@ The Config Registry is the single source of truth for all system behaviour. It i
 /
 ├── apps/
 │   ├── mobile/           # Expo React Native (iOS + Android)
-│   ├── quest/            # Meta Quest client (React Native / OpenXR — voice-first VR/AR)
 │   └── server/           # Next.js — unified server (API, AP engine, LLM client, web shell)
 │       ├── app/           # Next.js App Router (pages, layouts, RSC)
 │       ├── api/           # API routes (REST, AP inbox/outbox, WebFinger)
@@ -2049,7 +1984,7 @@ The Config Registry is the single source of truth for all system behaviour. It i
 │   │   ├── Feed/
 │   │   ├── Card/
 │   │   ├── InputBar/
-│   │   ├── SwipeNavigator/
+│   │   ├── ContentPane/
 │   │   └── DraftCard/
 │   ├── types/            # Shared TypeScript types
 │   ├── ap-core/          # ActivityPub builders & validators
@@ -2091,19 +2026,19 @@ The Config Registry is the single source of truth for all system behaviour. It i
 | 12  | E2EE                             | Engineering        | 🟢 MLS (RFC 9420). Hybrid key storage                                                                                                                                                                                   |
 | 13  | Rating format                    | Product            | 🟢 👍 / 👎 via native Like/Dislike + optional Note blurb                                                                                                                                                                |
 | 14  | Extension namespace              | Product            | 🟢 v1 internal; v2 publish TrustRequest/TrustGrant; v3+ domain types                                                                                                                                                    |
-| 15  | Chat thread layout               | Product            | 🟢 Full screen on 1-col mobile; right column on 2+ col tablet/web                                                                                                                                                       |
+| 15  | Chat thread layout               | Product            | 🟢 Full screen on mobile; content pane on tablet/web                                                                                                                                                                    |
 | 16  | Group host migration             | Engineering        | 🟢 Automatic — oldest remaining member's server via MLS commit                                                                                                                                                          |
-| 17  | Column counts                    | Product            | 🟢 Mobile default 1, tablet 2–3; always user-configurable per device                                                                                                                                                    |
+| 17  | Layout model                     | Product            | 🟢 Two-pane: feed (left) + content (right). Mobile: tap replaces feed; tablet/web: side-by-side                                                                                                                         |
 | 18  | Encryption per type              | Engineering        | 🟢 Defined in extension manifest (`encryption: "required"/"optional"/"none"`)                                                                                                                                           |
 | 19  | App store strategy               | Product            | 🟢 Single app — "Lightweb Browser" on iOS and Android. Server personalisation happens at first launch, not in the binary                                                                                                |
 | 20  | AI chat history                  | Product            | 🟢 Not stored — ephemeral per session                                                                                                                                                                                   |
 | 21  | LLM API key                      | Engineering        | 🟢 Operator only at v1; user-owned LLM is post-v1                                                                                                                                                                       |
-| 22  | Remote feed connection           | Engineering        | 🟢 Background polling (default 60s, configurable) + on-demand WebSocket on swipe-to-connect                                                                                                                             |
+| 22  | Remote feed connection           | Engineering        | 🟢 Background polling (default 60s, configurable) + on-demand WebSocket on tap-to-connect                                                                                                                               |
 | 23  | Config registry tracking         | Engineering        | 🟢 Git-tracked — secrets via env vars only                                                                                                                                                                              |
 | 24  | Key revocation                   | Engineering        | 🟢 MLS epoch advancement — any group member triggers commit; old-epoch messages inaccessible after rotation                                                                                                             |
 | 25  | Reviewable types at v1           | Product            | 🟢 Article, Product, Audio, Video (reviewed via native Like/Dislike/Note)                                                                                                                                               |
 | 26  | Container orchestration          | Engineering        | 🟢 Kubernetes                                                                                                                                                                                                           |
-| 27  | Read receipts                    | Product            | 🟢 On by default. Post read receipt only on swipe-to-connect. Chat on delivery/view                                                                                                                                     |
+| 27  | Read receipts                    | Product            | 🟢 On by default. Post read receipt only on tap-to-connect. Chat on delivery/view                                                                                                                                       |
 | 29  | Object types                     | Product            | 🟢 8 core types: Note, Article, Audio, Video, ChatMessage, TrustRequest, TrustGrant, Product. Reviews via native Like/Dislike/Note. Collections use native AP `OrderedCollection`                                       |
 | 30  | Collection implementation        | Engineering        | 🟢 Native AP `OrderedCollection` with Lightweb namespace properties (`lwMetadata`, `lwTags`)                                                                                                                            |
 | 31  | Background polling default       | Product            | 🟢 60s, user-configurable in registry                                                                                                                                                                                   |
@@ -2124,19 +2059,19 @@ The Config Registry is the single source of truth for all system behaviour. It i
 
 ## 15. Roadmap
 
-| Phase                                      | Timeline    | Deliverables                                                                                                          |
-| ------------------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Phase 0 — Foundation**                   | Weeks 1–3   | Monorepo, Next.js server scaffold, DB schema, Config Registry, WebFinger + Actor endpoints, Redis sidecar, Dockerfile |
-| **Phase 1 — Core Federation**              | Weeks 4–8   | AP engine (inbox/outbox), Follow/Accept, HTTP Signatures, `Note`, `Article`, and `ChatMessage` types                  |
-| **Phase 2 — Column Navigator + Input Bar** | Weeks 6–12  | Shared Solito UI, column navigator, focused card, input bar, SSO auth, 1-col mobile + 2-col tablet                    |
-| **Phase 3 — Chat (1:1 + Group)**           | Weeks 8–14  | ChatMessage object, MLS encryption, WebSocket server, group host model, host migration, feed cards                    |
-| **Phase 4 — Swipe + Content Creation**     | Weeks 10–15 | Symmetric swipe (context-dependent columns), content creation flow, draft cards, animations, minimal client JS        |
-| **Phase 5 — LLM Client**                   | Weeks 12–16 | LLM client module, Claude integration, config read/write, action dispatch                                             |
-| **Phase 6 — Circle of Trust**              | Weeks 14–18 | Controlled accounts, TrustRequest/TrustGrant, approval flow, config object permissions                                |
-| **Phase 7 — Object Model + Reviews**       | Weeks 16–19 | LightwebObject base, extension manifest loader, native Like/Dislike/Note review mechanism                             |
-| **Phase 8 — Lightweb Cloud**               | Weeks 17–21 | K8s deployment, container provisioning, per-user DB creation, managed PG setup, billing hooks                         |
-| **Phase 9 — Polish & Launch**              | Weeks 21–26 | Performance, a11y, beta testing, app store submission                                                                 |
-| **Post-v1**                                | TBD         | Video chat (SFU on host server), TrustRequest open standard, business trust                                           |
+| Phase                                           | Timeline    | Deliverables                                                                                                          |
+| ----------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Phase 0 — Foundation**                        | Weeks 1–3   | Monorepo, Next.js server scaffold, DB schema, Config Registry, WebFinger + Actor endpoints, Redis sidecar, Dockerfile |
+| **Phase 1 — Core Federation**                   | Weeks 4–8   | AP engine (inbox/outbox), Follow/Accept, HTTP Signatures, `Note`, `Article`, and `ChatMessage` types                  |
+| **Phase 2 — Feed + Content Pane + Input Bar**   | Weeks 6–12  | Shared Solito UI, two-pane layout, focused card, input bar, SSO auth, mobile + tablet                                 |
+| **Phase 3 — Chat (1:1 + Group)**                | Weeks 8–14  | ChatMessage object, MLS encryption, WebSocket server, group host model, host migration, feed cards                    |
+| **Phase 4 — Tap Navigation + Content Creation** | Weeks 10–15 | Tap-to-open content pane, content creation flow, draft cards, animations, minimal client JS                           |
+| **Phase 5 — LLM Client**                        | Weeks 12–16 | LLM client module, Claude integration, config read/write, action dispatch                                             |
+| **Phase 6 — Circle of Trust**                   | Weeks 14–18 | Controlled accounts, TrustRequest/TrustGrant, approval flow, config object permissions                                |
+| **Phase 7 — Object Model + Reviews**            | Weeks 16–19 | LightwebObject base, extension manifest loader, native Like/Dislike/Note review mechanism                             |
+| **Phase 8 — Lightweb Cloud**                    | Weeks 17–21 | K8s deployment, container provisioning, per-user DB creation, managed PG setup, billing hooks                         |
+| **Phase 9 — Polish & Launch**                   | Weeks 21–26 | Performance, a11y, beta testing, app store submission                                                                 |
+| **Post-v1**                                     | TBD         | Video chat (SFU on host server), TrustRequest open standard, business trust                                           |
 
 ---
 
