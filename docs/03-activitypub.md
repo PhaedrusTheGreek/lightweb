@@ -248,9 +248,18 @@ interface ActionResult {
 Outbound: HTTP POST signed activities to remote inboxes.
 Inbound: Receive and verify signed activities at local inbox.
 
-### AP Engine → LLM Engine (Events)
+### AP Engine → Event Subsystem
 
-When inbound activities arrive that warrant user-level handling, the AP Engine publishes a `SystemEvent` to a Redis pub/sub channel consumed by the LLM Engine. See [02-llm-engine.md](02-llm-engine.md) for the event type table and `SystemEvent` interface.
+Redis pub/sub channel. The AP Engine publishes typed events; the LLM Engine subscribes and matches event handlers in config.
+
+```typescript
+interface SystemEvent {
+  type: string; // e.g. "follow.received", "dm.received"
+  source: string; // "ap" (future: "timer", "client")
+  payload: Record<string, unknown>;
+  timestamp: string; // ISO 8601
+}
+```
 
 ### Client-Facing: Feed, Real-Time & Direct Dispatch
 

@@ -167,44 +167,18 @@ POST /api/natural_input
 
 ### LLM Engine → AP Engine
 
-```typescript
-// Dispatch a named action
-interface ActionDispatch {
-  action: string;
-  params: Record<string, unknown>;
+```
+POST /api/dispatch
+{
+  action: string
+  params: { ... }
 }
 ```
 
-### LLM Engine → Config Registry
+### LLM Engine → Event Subsystem
 
-```typescript
-// Read (in-process, direct memory access)
-function readConfig(path: string): unknown;
-
-// Write (through Action API only, sandbox-enforced)
-function writeConfig(path: string, value: unknown): void;
-```
-
-### AP Engine → LLM Engine (Permission Queries)
-
-```typescript
-function checkPermission(contactUri: string, permission: string): boolean;
-function getContactRelationships(contactUri: string): string[];
-function resolveAlias(alias: string): string | null; // returns actor URI
-```
-
-### AP Engine → LLM Engine (Events)
-
-Redis pub/sub channel. The AP Engine publishes typed events; the LLM Engine subscribes and matches against event skills.
-
-```typescript
-interface SystemEvent {
-  type: string; // e.g. "follow.received", "dm.received"
-  source: string; // "ap" (future: "timer", "client")
-  payload: Record<string, unknown>;
-  timestamp: string; // ISO 8601
-}
-```
+The LLM Engine will have a scheduled event task that injects custom
+events into the event queue, but it's out of scope for v1. For now, all events are generated from the AP engine.
 
 ## Dependencies
 

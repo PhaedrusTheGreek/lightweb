@@ -62,7 +62,7 @@ See [LLM Engine Interface](02-llm-engine.md#interfaces)
 
 ### Direct to AP Engine
 
-"Direct" client to AP engine interface used in some modes (chat threads, new posts, replies, comments). Same `ActionDispatch` shape the LLM Engine uses — the AP Engine handles it identically regardless of caller.
+"Direct" mode used in some contexts (chat threads, new posts, replies, comments). Same `ActionDispatch` shape the LLM Engine uses — the AP Engine handles it identically regardless of caller.
 
 See [AP Engine Interface](03-activitypub.md#interfaces)
 
