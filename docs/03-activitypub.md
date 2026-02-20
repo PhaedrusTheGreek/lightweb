@@ -20,8 +20,7 @@ All content and communication. Federation with the outside world. The object mod
 | Store      | What                                                                     |
 | ---------- | ------------------------------------------------------------------------ |
 | PostgreSQL | Activities, objects, conversations, followers, following, media metadata |
-| Redis      | Feed cache, session tokens, pub/sub channels, presence                   |
-| Filesystem | Nothing (config is owned by LLM Engine)                                  |
+| Redis      | Feed cache, session tokens, pub/sub channels, presence, events           |
 
 ---
 
@@ -50,9 +49,6 @@ interface LightwebObject extends ASObject {
 | Note        | Native (extended) | None           | Short-form posts, federated DMs |
 | Article     | Native (extended) | None           | Long-form posts                 |
 | ChatMessage | Proprietary       | Required (MLS) | E2EE chat messages              |
-| Audio       | Native (extended) | None           | Podcast episodes, music         |
-| Video       | Native (extended) | None           | Video content                   |
-| Product     | Proprietary       | None           | Purchasable items               |
 
 ### Collections
 
@@ -75,10 +71,6 @@ Collections use AP's native `OrderedCollection`, extended with `lwMetadata.displ
 ### Tags
 
 `lwTags` are free-form strings on any object. They drive filtering, sorting, and discovery. Not a controlled vocabulary.
-
-### Reviews
-
-Expressed via native AP objects — `Like` (positive), `Dislike` (negative), `Note` as `inReplyTo` (review blurb). No proprietary review type.
 
 ---
 
@@ -145,6 +137,8 @@ A single conversation may use multiple transports over its lifetime:
 - Upgrades to encrypted chat → WebSocket for real-time, HTTP for federation fan-out
 - Future: adds video → WebRTC for media, WebSocket for signaling
 
+Importantly, the transport layer may be completely modular - so while signalling happens in native AP, the connection itself may take a different microservice route (through the same server). For example, I might have a crude video chat implementation that needs completely replacing, and we must not touch the core codebase to do so.
+
 ---
 
 ## Conversation Lifecycle
@@ -201,7 +195,7 @@ WebSocket /ws
   → incoming ChatMessage, typing indicators, presence, read receipts
 ```
 
-### Internal: LLM Engine → AP Engine (Action Dispatch)
+### Internal: LLM Engine → AP Engine (Activity Dispatch)
 
 The LLM Engine dispatches named actions. The AP Engine validates and executes them.
 
@@ -263,9 +257,11 @@ interface SystemEvent {
 
 ### Client-Facing: Feed, Real-Time & Direct Dispatch
 
+It's important to note that there is both an internal and external REST interface on this server with a clear delineation and local security on the former.
+
 ```
-GET  /api/feed              → Card[]
-GET  /api/feed/:id          → CardDetail
+GET  /api/feed              → Activity[]
+GET  /api/feed/:id          → ActivityDetail
 POST /api/activity          → ActionDispatch (Direct mode — same shape as LLM Engine dispatch)
 WS   /ws                    → real-time events (messages, typing, presence)
 ```
