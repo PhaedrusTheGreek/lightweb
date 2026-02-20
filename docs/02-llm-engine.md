@@ -165,7 +165,7 @@ POST /api/natural_input
 }
 ```
 
-### LLM Engine → AP Engine
+### LLM Engine → AP Engine (Activity Dispatch)
 
 ```
 POST /api/dispatch
