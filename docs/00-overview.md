@@ -73,7 +73,9 @@ Three servers per user container. Each module is its own process.
 | Layer             | Technology                    |
 | ----------------- | ----------------------------- |
 | Mobile            | React Native (Expo)           |
-| Web + Server      | Next.js 14+ (App Router)      |
+| Client Server     | Next.js 14+ (App Router)      |
+| LLM Engine        | Fastify                       |
+| AP Engine         | Fastify                       |
 | Shared UI         | Solito + react-native-web     |
 | Language          | TypeScript                    |
 | Database          | PostgreSQL (per user)         |
