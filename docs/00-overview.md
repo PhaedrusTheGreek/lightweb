@@ -16,7 +16,7 @@ _Sending_ data through web browsers and most apps is uncontrolled and insecure.
 
 ### Vision
 
-To lock down browser PUT/POST capability, effectively making it read only, by designing a new alternate simple & secure social & business media / communciations browser interface.
+To lock down browser PUT/POST capability, effectively making it read only, by designing a new alternate simple & secure platform.
 
 ## Design Principles
 
