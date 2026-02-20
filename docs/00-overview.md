@@ -2,7 +2,7 @@
 
 ## What Is Lightweb Browser
 
-A federated social and business and communications platform built on ActivityPub. One user per server. Every interaction flows through a single input bar — the LLM interprets intent, the system executes it.
+A federated social and business media/communications platform built on ActivityPub. One user per server. Every interaction flows through a single input bar — the LLM interprets intent, the system executes it.
 
 ### Mission Statement
 
