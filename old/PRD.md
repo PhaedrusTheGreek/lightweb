@@ -158,7 +158,7 @@ Lightweb Browser is a federated social platform built on ActivityPub, designed a
 │ iOS (RN/Expo) ─┼──┼─▶│  API Routes                                │   │
 │ Android (RN)  ─┼──┼─▶│  - REST API for all clients                │   │
 │ Web (browser) ─┼──┼─▶│  - Auth (JWT / OAuth2 — Google, Apple)     │   │
-│                │  │  │  - Rate limiting, input validation         │   │
+│                │  │  │                                            │   │
 │ ── Solito ──   │  │  │                                            │   │
 │ shared UI +    │  │  │  ActivityPub Engine                        │   │
 │ react-native-  │  │  │  - Inbox / Outbox                          │   │
@@ -567,6 +567,8 @@ Draft cards are **local-only** until explicitly published. They are not federate
 
 The LLM client is **server-side only** — an HTTP client within the Next.js process that calls an external LLM API. The client never calls an LLM provider directly.
 
+The LLM **never modifies the Config Registry directly** and **never constructs raw ActivityPub activities.** All mutations — whether changing a setting or publishing a post — flow through the Action API (§12). The LLM's role is to interpret natural language intent and map it to the correct named action with the correct parameters. The Action API validates inputs, enforces sandbox boundaries, and executes atomically.
+
 #### Request Flow
 
 ```
@@ -578,22 +580,32 @@ Next.js API route validates + enriches with full card ActivityPub object
        ▼
 LLM Client:
   1. Read Config Registry (already in process memory)
-  2. Build system prompt: server config + card context + available actions
-  3. Call external LLM API (Claude by default)
-  4. Parse response → { replyText, actions[] }
-  5. Execute actions[] via AP engine or Config Registry writer
-  6. Return replyText to client
+  2. Load applicable skill files (Internal API) and External API vocabulary
+  3. Build system prompt: config state + card context + available skills + External API actions
+  4. Call external LLM API (Claude by default)
+  5. Parse response → { replyText, actions[] }
+       │
+       ▼
+Action API (§12) executes each action:
+  - Internal skill → validate sandbox → atomic config write
+  - External action → validate params → construct + sign AP activity → dispatch via AP engine
+  - Event triggers → evaluate workflow conditions → dispatch chained actions (recursion depth ≤ 3)
+       │
+       ▼
+Return replyText to client
 ```
 
 #### LLM Permissions
 
-| The LLM client **can**                                              | The LLM client **cannot**         |
-| ------------------------------------------------------------------- | --------------------------------- |
-| Read entire Config Registry (in process memory)                     | Read or write PostgreSQL directly |
-| Write scoped Config Registry keys                                   | Access another user's data        |
-| Dispatch ActivityPub activities on behalf of the authenticated user | Make outbound network calls       |
-| Return natural language responses                                   | Modify server infrastructure      |
-| Describe available actions for any card context                     |                                   |
+| The LLM client **can**                                                                        | The LLM client **cannot**                                        |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Read entire Config Registry (in process memory)                                               | Write to the Config Registry directly (must use Internal skills) |
+| Dispatch Internal API skills — sandbox-enforced config mutations (§12.2)                      | Construct raw ActivityPub JSON or send arbitrary federation msgs |
+| Dispatch External API actions — hardcoded AP activity vocabulary (§12.3)                      | Write to config paths outside a skill's declared sandbox         |
+| Return natural language responses                                                             | Read or write PostgreSQL directly                                |
+| Describe available actions for any card context (skills + External API)                       | Access another user's data                                       |
+| Register or remove event workflows via meta-skills (`register-event`, `remove-event`) (§12.4) | Make outbound network calls beyond the LLM API                   |
+|                                                                                               | Modify server infrastructure                                     |
 
 ---
 
@@ -1419,12 +1431,6 @@ Every action has parameters with registry-stored defaults, adjustable via LLM.
 
 Extensions are published as JSON-LD context documents at `https://lightwebbrowser.org/ns`. Other ActivityPub servers may implement these types as they wish. Lightweb does not control or gate third-party implementations — the spec is open, the implementation is curated.
 
-**Publishing roadmap:**
-
-- **v1:** Internal — namespace not publicly resolvable; spec documented internally
-- **v2:** Publish `TrustRequest`, `TrustGrant` specs — highest interoperability value
-- **v3+:** Publish `Product`, full ecommerce vocabulary, and `lwMetadata` extensions for `Audio`/`Video`
-
 ### 9.12 Reviews — Native Like, Dislike & Note
 
 Reviews are expressed using three native ActivityStreams objects — no proprietary type required:
@@ -1759,13 +1765,14 @@ The Config Registry is the single source of truth for all system behaviour. It i
 
 ### 11.4 Access Rules
 
-| Actor                    | Read               | Write                                                 |
-| ------------------------ | ------------------ | ----------------------------------------------------- |
-| LLM client (in-process)  | ✅ Full            | ✅ Scoped (user-affecting keys only, not server-wide) |
-| API routes (in-process)  | ✅ Full            | ❌                                                    |
-| AP engine (in-process)   | ✅ Federation keys | ❌                                                    |
-| Client apps              | ❌ Never           | ❌ Never                                              |
-| Server operator (manual) | ✅ Full            | ✅ Full (file edit + restart)                         |
+| Actor                    | Read               | Write                                                                      |
+| ------------------------ | ------------------ | -------------------------------------------------------------------------- |
+| LLM client (in-process)  | ✅ Full            | ❌ Never direct — must dispatch Internal API skills via Action API (§12.2) |
+| Action API (in-process)  | ✅ Full            | ✅ Sandbox-scoped (only paths declared in the executing skill's sandbox)   |
+| API routes (in-process)  | ✅ Full            | ❌                                                                         |
+| AP engine (in-process)   | ✅ Federation keys | ❌                                                                         |
+| Client apps              | ❌ Never           | ❌ Never                                                                   |
+| Server operator (manual) | ✅ Full            | ✅ Full (file edit + restart)                                              |
 
 ---
 
