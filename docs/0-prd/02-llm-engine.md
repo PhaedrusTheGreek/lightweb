@@ -8,14 +8,16 @@ Importantly, the LLM / any skill does not have internet access. While arbitrary 
 
 ## Responsibilities
 
-This module has a single primary responsiblity - natural language intent resolution to specific curated [skill].md
+This module has a single primary responsibility — natural language intent resolution to curated SDK tool definitions.
 
-Out of the box skills will allow user to:
+The LLM Engine uses the **Vercel AI SDK** to register tools with JSON Schema parameters and TypeScript handler functions. The model decides which tool to call and with what arguments; the handler executes it. Provider-portable across Claude, OpenAI, and Gemini with no changes to tool definitions.
 
-1. Change Config - Make config changes like 'Alias this contact as "dad"'
-2. Dispatch Actions - Dispatch external actions like 'Follow dad'
+Out of the box tools allow users to:
 
-These potentially hundreds of skills will replace all UI config & settings. Interestingly, there will also be very customizable event-based config that allowed custom triggering of actions based on events.
+1. **Change Config** — Make config changes like 'Alias this contact as "dad"'
+2. **Dispatch Actions** — Dispatch external actions like 'Follow dad'
+
+These potentially hundreds of tools replace all UI config and settings. Event-based rules (see Event Rules below) provide user-customizable triggering of actions based on events.
 
 ---
 
@@ -96,35 +98,72 @@ Boolean logic on relationship types and following state:
 
 ---
 
-## Action API
+## Tool API
 
-All user-initiated actions flow through the Action API. The Action API is an exhaustive whitelist — if an intent does not match a registered skill or named action, the LLM must refuse the request. No freeform execution is permitted. Two domains:
+All user-initiated actions flow through the Tool API. The Tool API is an exhaustive whitelist — if an intent does not match a registered tool, the LLM must refuse the request. No freeform execution is permitted. Two domains:
 
-### A) Internal Skills (Config Mutations)
+### A) Internal Tools (Config Mutations)
 
-Text-based skill definitions stored in the user's home directory (`~/skills/`). Each skill declares its purpose, sandbox (allowed config paths), parameters, and behaviour. The LLM reads applicable skills at request time.
+SDK tool definitions with JSON Schema parameters and TypeScript handler functions. Each tool declares its description (used by the model for intent matching), typed parameters, and a handler that reads/writes the Config Registry.
 
-The LLM cannot write to config paths outside a skill's declared sandbox.
+Config ACL is enforced in the handler — each tool may only write to its declared config paths. This is a code-level boundary, not a prompt-level one.
 
-**Example skills:** set-display-name, set-read-receipts, block-domain, set-follow-policy, register-event, etc.
+**Example tools:** set-display-name, set-read-receipts, block-domain, set-follow-policy, etc.
 
-Highly user-extensible by design. Whether or not skills should be extensible by means natural language from client UIs is a topic of debate and would depend on quality - because having well defined and well tested skills are what will make the natural interface predictable.
+```typescript
+const setReadReceipts = tool({
+  description: 'Enable or disable read receipts for RCS messaging',
+  parameters: z.object({
+    enabled: z.boolean().describe('whether read receipts are on'),
+  }),
+  execute: async ({ enabled }) => {
+    // enforces ACL: only messaging.rcs.read_receipts is writable
+    await configRegistry.write('messaging.rcs.read_receipts', enabled);
+    return { success: true };
+  },
+});
+```
 
-### B) External Skills (AP Dispatch)
+Internal tools are not user-extensible — they are authored, tested, and shipped as code. This ensures the natural language interface remains predictable and reliable.
 
-Skills definitions that produce AP activities. Dispatched to the AP Engine. Not user extensible - pluggable only — this is a security boundary.
+### B) External Tools (AP Dispatch)
+
+SDK tool definitions that produce AP activities. The handler dispatches to the AP Engine's action API. Not user-extensible — this is a security boundary.
 
 See [03-activitypub.md](03-activitypub.md) for the full action vocabulary and dispatch interface.
 
-### Event Skills
+### Event Rules
 
-The AP Engine is the primary event producer — it is the first to know when a follow arrives, a DM lands, a friend request is received, etc. When something happens, the AP Engine emits a typed event to the LLM Engine over Redis pub/sub.
+The AP Engine is the primary event producer — it is the first to know when a follow arrives, a DM lands, a friend request is received, etc. When something happens, the AP Engine emits a typed event to the LLM Engine over Redis Streams.
 
-The LLM Engine consumes these events and matches them against **event skills** — skills that are triggered by events rather than user input. Event skills follow the same skill format (purpose, sandbox, parameters, behaviour) but declare a trigger instead of being invoked by the user.
+The LLM Engine consumes these events and matches them against **event rules** — user-configurable condition→action pairs stored in `config.events`. Unlike tools, event rules are user-extensible: users create them via natural language ("when someone follows me, auto-follow back") and they are persisted as structured config, not code.
 
-**Example event skills:** notify-on-follow, auto-accept-friend-request, keyword-alert, etc.
+**Event rule structure (stored in `config.events`):**
 
-Event skills can trigger any combination of internal config mutations or external AP actions, just like user-invoked skills.
+```json
+{
+  "rules": [
+    {
+      "id": "auto-follow-back",
+      "trigger": "follow.received",
+      "conditions": {},
+      "actions": [{ "tool": "follow", "params": { "actorUri": "$event.actorUri" } }]
+    },
+    {
+      "id": "keyword-alert",
+      "trigger": "dm.received",
+      "conditions": { "contentContains": "urgent" },
+      "actions": [{ "tool": "notify", "params": { "priority": "high" } }]
+    }
+  ]
+}
+```
+
+Event rules can trigger any registered tool (internal or external). The `$event.*` syntax references fields from the event payload. Conditions are evaluated in code — the LLM is not involved at event-processing time.
+
+**Example rules:** auto-follow-back, auto-accept-friend-request, keyword-alert, notify-on-mention, etc.
+
+Tools for managing event rules (create-event-rule, delete-event-rule, list-event-rules) are themselves internal tools — so users create and manage rules via natural language, but the rules execute deterministically without LLM involvement.
 
 **Event types (v1):**
 
@@ -182,6 +221,7 @@ events into the event queue, but it's out of scope for v1. For now, all events a
 
 ## Dependencies
 
+- **Vercel AI SDK**: Provider-portable tool use — registers tools with JSON Schema params, handles model calls across Claude, OpenAI, Gemini
 - **External LLM API**: Claude (default), swappable via config
 - **AP Engine**: action dispatch target, permission query source
 - **Config Registry**: owned state (per-user JSON file in `~/config/registry.json`)

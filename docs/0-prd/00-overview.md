@@ -45,8 +45,8 @@ Three server processes per instance. Each module is its own process, serving all
 │  │  LLM Engine      │   │                                │
 │  │  (Fastify)       │   │                                │
 │  │  Per-user config │   │                                │
-│  │  & skills from   │   │                                │
-│  │  ~/config, ~/skills  │                                │
+│  │  & tool defs     │   │                                │
+│  │  ~/config            │                                │
 │  └───────┬──────────┘   │                                │
 │          │ Action       │                                │
 │          │ dispatch     │                                │
@@ -71,7 +71,6 @@ Three server processes per instance. Each module is its own process, serving all
 ┌──────────────────────────────────────────────┐
 │  Per-User Home Directories (/home/<user>/)   │
 │  ├── config/registry.json                    │
-│  ├── skills/                                 │
 │  └── keys/                                   │
 └──────────────────────────────────────────────┘
 ```
@@ -86,10 +85,11 @@ Three server processes per instance. Each module is its own process, serving all
 | AP Engine         | Fastify                       |
 | Shared UI         | Solito + react-native-web     |
 | Language          | TypeScript                    |
+| LLM Integration   | Vercel AI SDK                 |
+| LLM Provider      | Claude (swappable via config) |
 | Database          | PostgreSQL (per user)         |
 | Cache / Real-time | Redis (local sidecar)         |
 | Media Storage     | S3/R2                         |
-| LLM               | Claude (swappable via config) |
 | Monorepo          | Turborepo                     |
 | Deployment        | Docker + Kubernetes           |
 
@@ -99,7 +99,7 @@ All external dependencies implement pluggable interfaces configured via the Conf
 
 | Provider     | Interface                                                 | Implementations        |
 | ------------ | --------------------------------------------------------- | ---------------------- |
-| LLM          | `complete(systemPrompt, messages)`                        | Claude, OpenAI, Gemini |
+| LLM          | Vercel AI SDK `generateText(model, tools, prompt)`        | Claude, OpenAI, Gemini |
 | Database     | `query(sql, params)`, `transaction(fn)`                   | PostgreSQL             |
 | Cache/Stream | `cache.get/set/mget/invalidate`, `stream.append/read/ack` | Redis                  |
 
