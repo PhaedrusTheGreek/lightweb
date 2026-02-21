@@ -3,7 +3,7 @@
 # Minimal TUI: prompt at bottom, scrolling output above
 # Pure terminal escape sequences — no dependencies
 
-PAD=1                                     # empty lines below prompt
+PAD=1                                    # empty lines below prompt
 
 setup() {
   printf '\033[?1049h'                     # alternate screen buffer
