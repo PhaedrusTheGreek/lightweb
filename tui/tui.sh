@@ -22,13 +22,16 @@ cleanup() {
   printf '\033[?1049l'                   # restore normal screen
 }
 
+resized=0
 on_resize() {
   rows=$(tput lines)
   cols=$(tput cols)
   prompt_row=$((rows - PAD))
   sep_row=$((prompt_row - 1))
-  printf '\033[1;%dr' "$((sep_row - 1))"
+  printf '\033[2J'                         # clear entire screen
+  printf '\033[1;%dr' "$((sep_row - 1))"   # new scroll region
   draw_sep
+  resized=1
 }
 
 draw_sep() {
@@ -39,8 +42,12 @@ draw_sep() {
 setup
 
 while true; do
+  resized=0
   printf '\033[%d;1H\033[K' "$prompt_row"  # clear input line
-  read -e -p "> " cmd || break
+  read -e -p "> " cmd
+  rc=$?
+  if ((resized)); then continue; fi        # WINCH interrupted read — just re-prompt
+  ((rc != 0)) && break                     # actual EOF (Ctrl+D)
   [[ -z "$cmd" ]] && continue
   [[ "$cmd" == "exit" || "$cmd" == "quit" ]] && break
   history -s "$cmd"
