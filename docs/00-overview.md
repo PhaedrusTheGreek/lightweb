@@ -2,7 +2,7 @@
 
 ## What Is Lightweb Browser
 
-A federated social and business media/communications platform built on ActivityPub. One user per server. Every interaction flows through a single input bar — the LLM interprets intent, the system executes it.
+A federated social and business media/communications platform built on ActivityPub. Multiple users per server. Every interaction flows through a single input bar — the LLM interprets intent, the system executes it.
 
 ### Mission Statement
 
@@ -30,11 +30,11 @@ To lock down browser PUT/POST capability, effectively making it read only, by de
 
 ## Architecture
 
-Three servers per user container. Each module is its own process.
+Three server processes per instance. Each module is its own process, serving all users on the server. Per-user state is namespaced at every layer.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  Per-User Container                                      │
+│  Server Instance                                         │
 │                                                          │
 │  ┌──────────────────────────────────┐                    │
 │  │  Client Server (Next.js)         │                    │
@@ -44,8 +44,9 @@ Three servers per user container. Each module is its own process.
 │  ┌───────▼──────────┐   │                                │
 │  │  LLM Engine      │   │                                │
 │  │  (Fastify)       │   │                                │
-│  │  Config Registry │   │                                │
-│  │  Skills          │   │                                │
+│  │  Per-user config │   │                                │
+│  │  & skills from   │   │                                │
+│  │  ~/config, ~/skills  │                                │
 │  └───────┬──────────┘   │                                │
 │          │ Action       │                                │
 │          │ dispatch     │                                │
@@ -57,7 +58,7 @@ Three servers per user container. Each module is its own process.
 │  │  transports, WebSocket           │                    │
 │  └───────┬──────────────────────────┘                    │
 │          │                                               │
-│  Redis (local sidecar for cache, state)                  │
+│  Redis (key-prefixed per user, ACL-enforced)             │
 └──────────┬───────────────────────────────────────────────┘
            │
 ┌──────────▼───────────────────────────────────┐
@@ -65,6 +66,13 @@ Three servers per user container. Each module is its own process.
 │  ├── PostgreSQL (separate DB per user)       │
 │  ├── S3/R2 (shared media storage)            │
 │  └── External LLM API (Claude, swappable)    │
+└──────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────┐
+│  Per-User Home Directories (/home/<user>/)   │
+│  ├── config/registry.json                    │
+│  ├── skills/                                 │
+│  └── keys/                                   │
 └──────────────────────────────────────────────┘
 ```
 
@@ -83,7 +91,7 @@ Three servers per user container. Each module is its own process.
 | Media Storage     | S3/R2                         |
 | LLM               | Claude (swappable via config) |
 | Monorepo          | Turborepo                     |
-| Container         | Docker + Kubernetes           |
+| Deployment        | Docker + Kubernetes           |
 
 ## Provider Abstractions
 
@@ -95,9 +103,30 @@ All external dependencies implement pluggable interfaces configured via the Conf
 | Database    | `query(sql, params)`, `transaction(fn)` | PostgreSQL, SQLite (dev) |
 | Queue/Cache | `publish`, `subscribe`, `cache.get/set` | Redis, in-memory (dev)   |
 
-## Single-User-Per-Server
+## Multi-User Namespacing
 
-Every user gets a dedicated container with their own domain. Domain = identity (`@alice@alice.lightweb.cloud`). This gives security isolation, resource isolation, and eliminates multi-tenancy complexity.
+Multiple users share a single server instance. Identity follows standard ActivityPub convention: `@alice@lightweb.cloud`. Isolation is enforced at every layer through namespacing.
+
+### Linux Users
+
+Each Lightweb user is a native Linux user. Personal state lives in the user's home directory:
+
+```
+/home/alice/
+├── config/registry.json    # User config (LLM Engine owned)
+├── skills/                 # User skill definitions
+└── keys/                   # MLS keypairs, signing keys
+```
+
+OS-level file permissions provide isolation — no application-level access control needed for the filesystem layer.
+
+### PostgreSQL
+
+Separate database per user (e.g. `lightweb_alice`, `lightweb_bob`). Connection routing based on authenticated user.
+
+### Redis
+
+Key prefixing per user (`alice:feed:cache`, `alice:session:xyz`). Redis ACLs restrict each user to their own key pattern (`alice:*`). Pub/sub channels are also prefixed (`alice:events`, `alice:presence`). This approach works with Redis Cluster and scales horizontally.
 
 ## Protocol Layers
 

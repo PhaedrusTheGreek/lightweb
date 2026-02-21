@@ -25,7 +25,7 @@ This config is application level only - does not include server config like prov
 
 The LLM Engine owns all registry state.
 
-**Storage:** Single JSON file (`config/registry.json`), loaded into memory at startup, atomic writes on mutation (temp file → rename).
+**Storage:** Per-user JSON file at `~/config/registry.json` (i.e. `/home/<username>/config/registry.json`), loaded into memory on request, atomic writes on mutation (temp file → rename). The LLM Engine resolves the config path from the authenticated user's Linux home directory.
 
 **Version Control:** Must be programatically version controlled. (Git)
 
@@ -102,7 +102,7 @@ All user-initiated actions flow through the Action API. The Action API is an exh
 
 ### A) Internal Skills (Config Mutations)
 
-Text-based skill definitions. Each skill declares its purpose, sandbox (allowed config paths), parameters, and behaviour. The LLM reads applicable skills at request time.
+Text-based skill definitions stored in the user's home directory (`~/skills/`). Each skill declares its purpose, sandbox (allowed config paths), parameters, and behaviour. The LLM reads applicable skills at request time.
 
 The LLM cannot write to config paths outside a skill's declared sandbox.
 
@@ -184,4 +184,4 @@ events into the event queue, but it's out of scope for v1. For now, all events a
 
 - **External LLM API**: Claude (default), swappable via config
 - **AP Engine**: action dispatch target, permission query source
-- **Config Registry**: owned state (JSON file)
+- **Config Registry**: owned state (per-user JSON file in `~/config/registry.json`)

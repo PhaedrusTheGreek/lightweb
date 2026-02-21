@@ -17,10 +17,10 @@ All content and communication. Federation with the outside world. The object mod
 
 ## Data Ownership
 
-| Store      | What                                                                     |
-| ---------- | ------------------------------------------------------------------------ |
-| PostgreSQL | Activities, objects, conversations, followers, following, media metadata |
-| Redis      | Feed cache, session tokens, pub/sub channels, presence, events           |
+| Store      | What                                                                     | Namespacing                                |
+| ---------- | ------------------------------------------------------------------------ | ------------------------------------------ |
+| PostgreSQL | Activities, objects, conversations, followers, following, media metadata | Separate database per user                 |
+| Redis      | Feed cache, session tokens, pub/sub channels, presence, events           | Key-prefixed per user (`<username>:<key>`) |
 
 ---
 
@@ -193,6 +193,7 @@ POST /api/activity
 ```
 WebSocket /ws
   → incoming ChatMessage, typing indicators, presence, read receipts
+  → authenticated per user; subscriptions scoped to the authenticated user's data
 ```
 
 ### Internal: LLM Engine → AP Engine (Activity Dispatch)
@@ -244,7 +245,7 @@ Inbound: Receive and verify signed activities at local inbox.
 
 ### AP Engine → Event Subsystem
 
-Redis pub/sub channel. The AP Engine publishes typed events; the LLM Engine subscribes and matches event handlers in config.
+Redis pub/sub channel, namespaced per user (`<username>:events`). The AP Engine publishes typed events; the LLM Engine subscribes to the relevant user's channel and matches event handlers in config.
 
 ```typescript
 interface SystemEvent {
