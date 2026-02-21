@@ -107,6 +107,10 @@ All external dependencies implement pluggable interfaces configured via the Conf
 
 Multiple users share a single server instance. Identity follows standard ActivityPub convention: `@alice@lightweb.cloud`. Isolation is enforced at every layer through namespacing.
 
+### Scale Target
+
+A single server instance is designed to serve hundreds to low thousands of users — not tens of thousands, not millions. Design decisions should be rooted in this level of scale. The goal is true decentralization in numbers: many small servers across many organizations, not a handful of mega-instances implementing a federated protocol in name only.
+
 ### Linux Users
 
 Each Lightweb user is a native Linux user. Personal state lives in the user's home directory:
