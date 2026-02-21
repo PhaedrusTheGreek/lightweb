@@ -20,18 +20,18 @@ It does **not** implement the ActivityPub Client-to-Server protocol. Client inte
 
 These decisions were made during the design phase and are not open for reconsideration without revisiting this document.
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Activity processing | Middleware chain | Predictable, linear, forces consistency |
-| Object storage | Polymorphic JSONB with GIN indexes | Matches AP's polymorphic data model, no migrations per type, queryable without rigid schema |
-| JSON-LD handling | Compact form, hard-coded contexts | No library dependency, no network calls, sufficient for compliance |
-| Feed fan-out | Fan-out on write to each user's Postgres | Complete data isolation per user, portable databases |
-| Redis cache role | Cache only, rebuildable from Postgres | No data loss on Redis failure or flush |
-| Redis event role | Streams with consumer groups | Durable event delivery, catch-up on reconnect, at-least-once semantics |
+| Decision                | Choice                                             | Rationale                                                                                   |
+| ----------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Activity processing     | Middleware chain                                   | Predictable, linear, forces consistency                                                     |
+| Object storage          | Polymorphic JSONB with GIN indexes                 | Matches AP's polymorphic data model, no migrations per type, queryable without rigid schema |
+| JSON-LD handling        | Compact form, hard-coded contexts                  | No library dependency, no network calls, sufficient for compliance                          |
+| Feed fan-out            | Fan-out on write to each user's Postgres           | Complete data isolation per user, portable databases                                        |
+| Redis cache role        | Cache only, rebuildable from Postgres              | No data loss on Redis failure or flush                                                      |
+| Redis event role        | Streams with consumer groups                       | Durable event delivery, catch-up on reconnect, at-least-once semantics                      |
 | Redis memory management | LFU eviction, TTL only for remote data correctness | Eviction handles memory pressure; TTL handles staleness of data we can't observe changes to |
-| Cache architecture | Normalized two-layer (object cache + feed indexes) | No duplication across feeds; single object cached once, referenced by ID |
-| Inbox model | Both shared and per-actor inboxes | Shared inbox reduces inbound federation traffic |
-| Scale target | Hundreds to low thousands of users per instance | Decentralized by design, not built for mega-instances |
+| Cache architecture      | Normalized two-layer (object cache + feed indexes) | No duplication across feeds; single object cached once, referenced by ID                    |
+| Inbox model             | Both shared and per-actor inboxes                  | Shared inbox reduces inbound federation traffic                                             |
+| Scale target            | Hundreds to low thousands of users per instance    | Decentralized by design, not built for mega-instances                                       |
 
 ---
 
@@ -80,14 +80,17 @@ dispatch
 
 ```typescript
 interface MiddlewareContext {
-  activity: Record<string, unknown>;  // The raw AP activity
-  actor?: Actor;                       // Resolved sending actor
-  recipients?: LocalRecipient[];       // Resolved local recipients
-  user?: string;                       // Authenticated local user (outbound only)
-  meta: Record<string, unknown>;       // Arbitrary metadata passed between steps
+  activity: Record<string, unknown>; // The raw AP activity
+  actor?: Actor; // Resolved sending actor
+  recipients?: LocalRecipient[]; // Resolved local recipients
+  user?: string; // Authenticated local user (outbound only)
+  meta: Record<string, unknown>; // Arbitrary metadata passed between steps
 }
 
-type Middleware = (ctx: MiddlewareContext, next: () => Promise<void>) => Promise<void>;
+type Middleware = (
+  ctx: MiddlewareContext,
+  next: () => Promise<void>,
+) => Promise<void>;
 ```
 
 ### 3.4 Type Handler Registry
@@ -96,9 +99,9 @@ The pipeline itself is type-agnostic. Type-specific behavior lives in a handler 
 
 ```typescript
 interface TypeHandler {
-  type: string;                                          // e.g., "Create", "Follow", "Like"
-  objectType?: string;                                   // Optional, e.g., "Note", "Article"
-  onInbound: (ctx: MiddlewareContext) => Promise<void>;  // Side effects for received activities
+  type: string; // e.g., "Create", "Follow", "Like"
+  objectType?: string; // Optional, e.g., "Note", "Article"
+  onInbound: (ctx: MiddlewareContext) => Promise<void>; // Side effects for received activities
   onOutbound: (ctx: MiddlewareContext) => Promise<void>; // Side effects for sent activities
 }
 ```
@@ -117,81 +120,81 @@ Each Lightweb user has an isolated database (`lightweb_<username>`). All tables 
 
 **actors** — Cached representations of known remote and local actors.
 
-| Column | Type | Description |
-|---|---|---|
-| uri | TEXT PK | Actor URI (e.g., `https://remote.social/users/bob`) |
-| type | TEXT | `Person`, `Service`, `Application`, etc. |
-| preferred_username | TEXT | Display name handle |
-| inbox | TEXT | Actor's inbox URL |
-| outbox | TEXT | Actor's outbox URL |
-| shared_inbox | TEXT | Server's shared inbox URL (nullable) |
-| public_key_pem | TEXT | Actor's public key for signature verification |
-| raw | JSONB | Full actor document as received |
-| fetched_at | TIMESTAMPTZ | Last time this actor was fetched/refreshed |
-| created_at | TIMESTAMPTZ | Row creation time |
+| Column             | Type        | Description                                         |
+| ------------------ | ----------- | --------------------------------------------------- |
+| uri                | TEXT PK     | Actor URI (e.g., `https://remote.social/users/bob`) |
+| type               | TEXT        | `Person`, `Service`, `Application`, etc.            |
+| preferred_username | TEXT        | Display name handle                                 |
+| inbox              | TEXT        | Actor's inbox URL                                   |
+| outbox             | TEXT        | Actor's outbox URL                                  |
+| shared_inbox       | TEXT        | Server's shared inbox URL (nullable)                |
+| public_key_pem     | TEXT        | Actor's public key for signature verification       |
+| raw                | JSONB       | Full actor document as received                     |
+| fetched_at         | TIMESTAMPTZ | Last time this actor was fetched/refreshed          |
+| created_at         | TIMESTAMPTZ | Row creation time                                   |
 
 **objects** — All ActivityPub objects, unified. The `raw` JSONB column is the authoritative representation. Indexed columns are extracted for query performance; all other fields are queried via JSONB operators and GIN indexes.
 
-| Column | Type | Description |
-|---|---|---|
-| id | UUID PK | Internal identifier |
-| uri | TEXT UNIQUE | AP object URI (e.g., `https://lightweb.cloud/users/alice/objects/<uuid>`) |
-| published | TIMESTAMPTZ | AP `published` timestamp (extracted for sort performance) |
-| raw | JSONB | Full object JSON-LD as received or constructed — source of truth |
-| created_at | TIMESTAMPTZ | Row creation time |
+| Column     | Type        | Description                                                               |
+| ---------- | ----------- | ------------------------------------------------------------------------- |
+| id         | UUID PK     | Internal identifier                                                       |
+| uri        | TEXT UNIQUE | AP object URI (e.g., `https://lightweb.cloud/users/alice/objects/<uuid>`) |
+| published  | TIMESTAMPTZ | AP `published` timestamp (extracted for sort performance)                 |
+| raw        | JSONB       | Full object JSON-LD as received or constructed — source of truth          |
+| created_at | TIMESTAMPTZ | Row creation time                                                         |
 
 **activities** — Activity envelopes wrapping objects. Same polymorphic approach as objects — `raw` JSONB is the source of truth, extracted columns exist only for query performance.
 
-| Column | Type | Description |
-|---|---|---|
-| id | UUID PK | Internal identifier |
-| uri | TEXT UNIQUE | AP activity URI |
-| direction | TEXT | `inbound` or `outbound` |
-| published | TIMESTAMPTZ | AP `published` timestamp (extracted for sort performance) |
-| raw | JSONB | Full activity JSON-LD — source of truth |
-| created_at | TIMESTAMPTZ | Row creation time |
+| Column     | Type        | Description                                               |
+| ---------- | ----------- | --------------------------------------------------------- |
+| id         | UUID PK     | Internal identifier                                       |
+| uri        | TEXT UNIQUE | AP activity URI                                           |
+| direction  | TEXT        | `inbound` or `outbound`                                   |
+| published  | TIMESTAMPTZ | AP `published` timestamp (extracted for sort performance) |
+| raw        | JSONB       | Full activity JSON-LD — source of truth                   |
+| created_at | TIMESTAMPTZ | Row creation time                                         |
 
 **relationships** — Follow and friend state.
 
-| Column | Type | Description |
-|---|---|---|
-| id | UUID PK | Internal identifier |
-| actor_uri | TEXT | The remote actor |
-| type | TEXT | `follower`, `following`, `friend` |
-| status | TEXT | `pending`, `accepted`, `rejected` |
-| activity_uri | TEXT | The Follow or Offer activity that created this |
-| created_at | TIMESTAMPTZ | Row creation time |
-| updated_at | TIMESTAMPTZ | Last state change |
+| Column       | Type        | Description                                    |
+| ------------ | ----------- | ---------------------------------------------- |
+| id           | UUID PK     | Internal identifier                            |
+| actor_uri    | TEXT        | The remote actor                               |
+| type         | TEXT        | `follower`, `following`, `friend`              |
+| status       | TEXT        | `pending`, `accepted`, `rejected`              |
+| activity_uri | TEXT        | The Follow or Offer activity that created this |
+| created_at   | TIMESTAMPTZ | Row creation time                              |
+| updated_at   | TIMESTAMPTZ | Last state change                              |
 
 **feed** — Chronological feed entries for this user, populated on write.
 
-| Column | Type | Description |
-|---|---|---|
-| id | UUID PK | Internal identifier |
-| activity_uri | TEXT | References the activity |
-| actor_uri | TEXT | Who performed the activity |
-| published | TIMESTAMPTZ | Sort key |
-| created_at | TIMESTAMPTZ | Row creation time |
+| Column       | Type        | Description                |
+| ------------ | ----------- | -------------------------- |
+| id           | UUID PK     | Internal identifier        |
+| activity_uri | TEXT        | References the activity    |
+| actor_uri    | TEXT        | Who performed the activity |
+| published    | TIMESTAMPTZ | Sort key                   |
+| created_at   | TIMESTAMPTZ | Row creation time          |
 
 The `feed` table is the user's materialized timeline. It is populated during the `persist` step of the inbound pipeline and during the `persist` step of the outbound pipeline.
 
 **groups** — Named collections of actor URIs. Used for audience scoping (AP `to`/`cc` addressing), content filtering, and any future purpose requiring a named set of actors.
 
-| Column | Type | Description |
-|---|---|---|
-| id | UUID PK | Internal identifier |
-| name | TEXT UNIQUE | Group name (e.g., `close-friends`, `work-colleagues`) |
-| uri | TEXT UNIQUE | AP collection URI (e.g., `https://<domain>/users/<username>/groups/<name>`) |
-| created_at | TIMESTAMPTZ | Row creation time |
+| Column     | Type        | Description                                                                 |
+| ---------- | ----------- | --------------------------------------------------------------------------- |
+| id         | UUID PK     | Internal identifier                                                         |
+| name       | TEXT UNIQUE | Group name (e.g., `close-friends`, `work-colleagues`)                       |
+| uri        | TEXT UNIQUE | AP collection URI (e.g., `https://<domain>/users/<username>/groups/<name>`) |
+| created_at | TIMESTAMPTZ | Row creation time                                                           |
 
 **group_members** — Membership in groups.
 
-| Column | Type | Description |
-|---|---|---|
-| group_id | UUID FK | References `groups.id` |
-| actor_uri | TEXT | Member actor URI |
-| added_at | TIMESTAMPTZ | When the member was added |
-| PRIMARY KEY | | `(group_id, actor_uri)` |
+| Column      | Type        | Description               |
+| ----------- | ----------- | ------------------------- |
+| group_id    | UUID FK     | References `groups.id`    |
+| actor_uri   | TEXT        | Member actor URI          |
+| added_at    | TIMESTAMPTZ | When the member was added |
+| PRIMARY KEY |             | `(group_id, actor_uri)`   |
 
 Groups are resolved during the `resolveRecipients` (outbound) and `resolveAddressing` (inbound) pipeline steps. When a `to` or `cc` field contains a group URI, the pipeline expands it to the member actor URIs for delivery.
 
@@ -317,11 +320,11 @@ ActivityPub defines several standard collections per actor. All are implemented 
 
 ### 7.1 Endpoints
 
-| Endpoint | Source | Visibility |
-|---|---|---|
-| `/users/:username/inbox` | `activities WHERE direction = 'inbound'` | Owner only (authenticated) |
-| `/users/:username/outbox` | `activities WHERE direction = 'outbound'` | Public (filtered by addressing) |
-| `/users/:username/followers` | `relationships WHERE type = 'follower' AND status = 'accepted'` | Public or owner-only (configurable) |
+| Endpoint                     | Source                                                           | Visibility                          |
+| ---------------------------- | ---------------------------------------------------------------- | ----------------------------------- |
+| `/users/:username/inbox`     | `activities WHERE direction = 'inbound'`                         | Owner only (authenticated)          |
+| `/users/:username/outbox`    | `activities WHERE direction = 'outbound'`                        | Public (filtered by addressing)     |
+| `/users/:username/followers` | `relationships WHERE type = 'follower' AND status = 'accepted'`  | Public or owner-only (configurable) |
 | `/users/:username/following` | `relationships WHERE type = 'following' AND status = 'accepted'` | Public or owner-only (configurable) |
 
 ### 7.2 Shared Inbox
@@ -429,7 +432,7 @@ interface SystemEvent {
   type: string;
   source: "ap";
   payload: Record<string, unknown>;
-  timestamp: string;  // ISO 8601
+  timestamp: string; // ISO 8601
 }
 ```
 
@@ -480,16 +483,16 @@ Authenticated per user. Pushes real-time events: incoming activities, typing ind
 
 These are the public-facing endpoints that remote servers interact with.
 
-| Endpoint | Method | Content-Type | Purpose |
-|---|---|---|---|
-| `/.well-known/webfinger` | GET | `application/jrd+json` | Actor discovery |
-| `/.well-known/nodeinfo` | GET | `application/json` | Server metadata |
-| `/users/:username` | GET | `application/activity+json` | Actor document |
-| `/users/:username/inbox` | POST | `application/activity+json` | Receive activities |
-| `/users/:username/outbox` | GET | `application/activity+json` | Published activities |
-| `/users/:username/followers` | GET | `application/activity+json` | Followers collection |
-| `/users/:username/following` | GET | `application/activity+json` | Following collection |
-| `/inbox` | POST | `application/activity+json` | Shared inbox |
+| Endpoint                     | Method | Content-Type                | Purpose              |
+| ---------------------------- | ------ | --------------------------- | -------------------- |
+| `/.well-known/webfinger`     | GET    | `application/jrd+json`      | Actor discovery      |
+| `/.well-known/nodeinfo`      | GET    | `application/json`          | Server metadata      |
+| `/users/:username`           | GET    | `application/activity+json` | Actor document       |
+| `/users/:username/inbox`     | POST   | `application/activity+json` | Receive activities   |
+| `/users/:username/outbox`    | GET    | `application/activity+json` | Published activities |
+| `/users/:username/followers` | GET    | `application/activity+json` | Followers collection |
+| `/users/:username/following` | GET    | `application/activity+json` | Following collection |
+| `/inbox`                     | POST   | `application/activity+json` | Shared inbox         |
 
 Content negotiation: these endpoints return `application/activity+json` when requested. The `Accept` header is checked; requests without the proper accept header for actor/collection endpoints return 406.
 
@@ -512,6 +515,7 @@ Configurable per server via the Config Registry. Blocked domains have their inbo
 ### 12.4 Input Validation
 
 All inbound activities are validated for:
+
 - Required fields (`type`, `actor`, `object` where applicable)
 - URI format validity
 - Reasonable size limits on content fields
@@ -615,11 +619,11 @@ This is the only cache type that uses TTL. All other cache types rely on pipelin
 
 Three distinct mechanisms, three distinct purposes:
 
-| Mechanism | Purpose | When it applies |
-|---|---|---|
-| **Invalidation** | The pipeline *knows* data changed | Object updated/deleted, new feed entry, side effect executed |
-| **Eviction** (LFU) | Redis needs memory | Automatic — least frequently used keys are evicted first |
-| **TTL** | Data *may have* changed and we can't observe it | Remote actor documents only |
+| Mechanism          | Purpose                                         | When it applies                                              |
+| ------------------ | ----------------------------------------------- | ------------------------------------------------------------ |
+| **Invalidation**   | The pipeline _knows_ data changed               | Object updated/deleted, new feed entry, side effect executed |
+| **Eviction** (LFU) | Redis needs memory                              | Automatic — least frequently used keys are evicted first     |
+| **TTL**            | Data _may have_ changed and we can't observe it | Remote actor documents only                                  |
 
 ---
 
