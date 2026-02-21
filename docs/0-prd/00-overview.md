@@ -97,11 +97,11 @@ Three server processes per instance. Each module is its own process, serving all
 
 All external dependencies implement pluggable interfaces configured via the Config Registry. Switching providers requires only a config change and restart.
 
-| Provider    | Interface                               | Implementations          |
-| ----------- | --------------------------------------- | ------------------------ |
-| LLM         | `complete(systemPrompt, messages)`      | Claude, OpenAI, Gemini   |
-| Database    | `query(sql, params)`, `transaction(fn)` | PostgreSQL, SQLite (dev) |
-| Queue/Cache | `publish`, `subscribe`, `cache.get/set` | Redis, in-memory (dev)   |
+| Provider     | Interface                                                 | Implementations        |
+| ------------ | --------------------------------------------------------- | ---------------------- |
+| LLM          | `complete(systemPrompt, messages)`                        | Claude, OpenAI, Gemini |
+| Database     | `query(sql, params)`, `transaction(fn)`                   | PostgreSQL             |
+| Cache/Stream | `cache.get/set/mget/invalidate`, `stream.append/read/ack` | Redis                  |
 
 ## Multi-User Namespacing
 

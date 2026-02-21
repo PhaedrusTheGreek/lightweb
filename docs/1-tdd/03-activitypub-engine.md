@@ -211,7 +211,7 @@ Groups are resolved during the `resolveRecipients` (outbound) and `resolveAddres
 - `objects(raw->'type')` — type-filtered queries
 - `objects(raw->'attributedTo')` — objects by author
 - `objects(raw->'inReplyTo')` — thread resolution
-- `objects(raw->'lwTag')` — internal tag queries (collection membership, filtering)
+- `objects(raw->'lwMetadata'->'tags')` — internal tag queries (collection membership, filtering)
 - `activities(raw->'actor')` — activities by actor
 - `activities(raw->'object')` — activities referencing an object
 - `activities(raw->'to')` — addressing queries
@@ -585,7 +585,7 @@ Feed indexes are built from Postgres queries that respect the user's configurati
 
 - `<username>:feed:main:page:0` — the user's primary timeline
 - `<username>:feed:close-friends:page:0` — scoped to a group's actors
-- `<username>:feed:knitting:page:0` — scoped to objects tagged via `lwTag`
+- `<username>:feed:knitting:page:0` — scoped to objects tagged via `lwMetadata.tags`
 
 The same object appearing in multiple feeds is stored once in the object cache and referenced by URI in each feed index. No duplication.
 

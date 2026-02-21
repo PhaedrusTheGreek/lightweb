@@ -20,7 +20,7 @@ All content and communication. Federation with the outside world. The object mod
 | Store      | What                                                                     | Namespacing                                |
 | ---------- | ------------------------------------------------------------------------ | ------------------------------------------ |
 | PostgreSQL | Activities, objects, conversations, followers, following, media metadata | Separate database per user                 |
-| Redis      | Feed cache, session tokens, pub/sub channels, presence, events           | Key-prefixed per user (`<username>:<key>`) |
+| Redis      | Object cache, feed indexes, event streams, session tokens, presence      | Key-prefixed per user (`<username>:<key>`) |
 
 ---
 
@@ -37,10 +37,20 @@ interface LightwebObject extends ASObject {
     "https://lightwebbrowser.org/ns",
   ];
   type: LightwebObjectType;
-  lwMetadata?: Record<string, unknown>;
-  lwTags?: string[];
+  lwMetadata?: {
+    tags?: LightwebTag[];
+    displayHint?: string;
+    [key: string]: unknown;
+  };
+}
+
+interface LightwebTag {
+  type: string;   // e.g., "collection", "audience", "topic"
+  name: string;   // e.g., "knitting-photos", "close-friends"
 }
 ```
+
+`lwMetadata.tags` are structured objects on any object. They drive filtering, sorting, collection membership, and discovery. The `type` field distinguishes tag purpose; the `name` field is free-form. Tags under the `lw` namespace are stripped before federation — they are internal-only. PostgreSQL GIN indexes on JSONB handle nested paths with no performance penalty.
 
 ### Core Types (v1)
 
@@ -67,10 +77,6 @@ Collections use AP's native `OrderedCollection`, extended with `lwMetadata.displ
 | Undo                                  | Un-follow, un-like, un-boost                   |
 | Add / Remove                          | Stream membership                              |
 | Update                                | Modify owned objects                           |
-
-### Tags
-
-`lwTags` are free-form strings on any object. They drive filtering, sorting, and discovery. Not a controlled vocabulary.
 
 ---
 
@@ -223,8 +229,8 @@ interface ActionResult {
 | AcceptFriendRequest | { offerId }                       | Accept(Offer)                       |
 | RejectFriendRequest | { offerId }                       | Reject(Offer)                       |
 | RemoveRelationship  | { actorUri, relationshipType }    | Local removal                       |
-| CreateNote          | { content, tags?, streamTarget? } | Create(Note)                        |
-| CreateArticle       | { title, content, tags? }         | Create(Article)                     |
+| CreateNote          | { content, lwMetadata.tags?, streamTarget? } | Create(Note)                        |
+| CreateArticle       | { title, content, lwMetadata.tags? }         | Create(Article)                     |
 | SendMessage         | { recipientUri, content }         | Create(Note) or Create(ChatMessage) |
 | Reply               | { objectId, content }             | Create(Note) with inReplyTo         |
 | Like                | { objectId }                      | Like                                |
@@ -234,7 +240,7 @@ interface ActionResult {
 | Boost               | { objectId }                      | Announce                            |
 | Unboost             | { objectId }                      | Undo(Announce)                      |
 | DeleteObject        | { objectId }                      | Delete                              |
-| CreateStream        | { name, tags? }                   | OrderedCollection + Actor update    |
+| CreateStream        | { name, lwMetadata.tags? }                   | OrderedCollection + Actor update    |
 | AddToStream         | { objectId, streamId }            | Add                                 |
 | RemoveFromStream    | { objectId, streamId }            | Remove                              |
 
@@ -245,7 +251,7 @@ Inbound: Receive and verify signed activities at local inbox.
 
 ### AP Engine → Event Subsystem
 
-Redis pub/sub channel, namespaced per user (`<username>:events`). The AP Engine publishes typed events; the LLM Engine subscribes to the relevant user's channel and matches event handlers in config.
+Redis Stream, namespaced per user (`<username>:events`). The AP Engine appends typed events; consumers (LLM Engine, WebSocket server) read via consumer groups with catch-up on reconnect.
 
 ```typescript
 interface SystemEvent {
@@ -271,5 +277,5 @@ WS   /ws                    → real-time events (messages, typing, presence)
 
 - **LLM Engine**: receives action dispatches, reads permission state for encryption decisions, consumes events
 - **PostgreSQL**: content persistence
-- **Redis**: feed cache, pub/sub for real-time delivery, event emission to LLM Engine
+- **Redis**: object cache, feed indexes, event streams (delivery to LLM Engine and WebSocket server), session, presence
 - **External LLM API**: none (AP engine does not call the LLM)
