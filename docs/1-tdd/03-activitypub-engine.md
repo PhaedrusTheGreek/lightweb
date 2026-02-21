@@ -8,9 +8,9 @@ The AP Engine is one of three server processes per Lightweb instance. It owns:
 
 - All federation (Server-to-Server ActivityPub)
 - Object persistence (PostgreSQL, one database per user)
-- Feed caching (Redis, cache-only, rebuildable)
+- Object caching (Redis, cache-only, rebuildable)
 - Real-time delivery (WebSocket)
-- Event emission (Redis pub/sub)
+- Event emission (Redis Streams)
 
 It does **not** implement the ActivityPub Client-to-Server protocol. Client interaction uses a custom REST/WebSocket API.
 
@@ -23,10 +23,13 @@ These decisions were made during the design phase and are not open for reconside
 | Decision | Choice | Rationale |
 |---|---|---|
 | Activity processing | Middleware chain | Predictable, linear, forces consistency |
-| Object storage | Unified `objects` table with type discriminator | Matches AP's polymorphic data model, no migrations per type |
+| Object storage | Polymorphic JSONB with GIN indexes | Matches AP's polymorphic data model, no migrations per type, queryable without rigid schema |
 | JSON-LD handling | Compact form, hard-coded contexts | No library dependency, no network calls, sufficient for compliance |
 | Feed fan-out | Fan-out on write to each user's Postgres | Complete data isolation per user, portable databases |
-| Redis role | Cache only, rebuildable from Postgres | No data loss on Redis failure or flush |
+| Redis cache role | Cache only, rebuildable from Postgres | No data loss on Redis failure or flush |
+| Redis event role | Streams with consumer groups | Durable event delivery, catch-up on reconnect, at-least-once semantics |
+| Redis memory management | LFU eviction, TTL only for remote data correctness | Eviction handles memory pressure; TTL handles staleness of data we can't observe changes to |
+| Cache architecture | Normalized two-layer (object cache + feed indexes) | No duplication across feeds; single object cached once, referenced by ID |
 | Inbox model | Both shared and per-actor inboxes | Shared inbox reduces inbound federation traffic |
 | Scale target | Hundreds to low thousands of users per instance | Decentralized by design, not built for mega-instances |
 
@@ -50,7 +53,7 @@ receive
   → decryptContent     If encrypted, unwrap MLS payload (type manifest lookup)
   → persist            Write to each local recipient's database (fan-out)
   → executeSideEffects Run type-specific handlers (e.g., update follower lists)
-  → emitEvents         Publish typed events to Redis pub/sub per recipient
+  → emitEvents         Append typed events to Redis Streams per recipient
   → respond            Return 202 Accepted
 ```
 
@@ -69,7 +72,7 @@ dispatch
   → persist            Write to the sending user's database (outbox)
   → signRequest        Generate HTTP Signature for each delivery target
   → deliver            POST to remote inboxes (async, with retry)
-  → emitEvents         Publish events to Redis pub/sub for the sending user
+  → emitEvents         Append events to Redis Stream for the sending user
   → respond            Return result to caller
 ```
 
@@ -127,36 +130,26 @@ Each Lightweb user has an isolated database (`lightweb_<username>`). All tables 
 | fetched_at | TIMESTAMPTZ | Last time this actor was fetched/refreshed |
 | created_at | TIMESTAMPTZ | Row creation time |
 
-**objects** — All ActivityPub objects, unified.
+**objects** — All ActivityPub objects, unified. The `raw` JSONB column is the authoritative representation. Indexed columns are extracted for query performance; all other fields are queried via JSONB operators and GIN indexes.
 
 | Column | Type | Description |
 |---|---|---|
 | id | UUID PK | Internal identifier |
 | uri | TEXT UNIQUE | AP object URI (e.g., `https://lightweb.cloud/users/alice/objects/<uuid>`) |
-| type | TEXT | Object type discriminator (`Note`, `Article`, etc.) |
-| attributed_to | TEXT | Actor URI of the author |
-| in_reply_to | TEXT | URI of parent object (nullable) |
-| content | JSONB | Full object payload (plaintext or ciphertext) |
-| encrypted | BOOLEAN | Whether content is MLS-encrypted |
-| published | TIMESTAMPTZ | AP `published` timestamp |
-| raw | JSONB | Original JSON-LD as received (federation) or as constructed (local) |
+| published | TIMESTAMPTZ | AP `published` timestamp (extracted for sort performance) |
+| raw | JSONB | Full object JSON-LD as received or constructed — source of truth |
 | created_at | TIMESTAMPTZ | Row creation time |
 
-**activities** — Activity envelopes wrapping objects.
+**activities** — Activity envelopes wrapping objects. Same polymorphic approach as objects — `raw` JSONB is the source of truth, extracted columns exist only for query performance.
 
 | Column | Type | Description |
 |---|---|---|
 | id | UUID PK | Internal identifier |
 | uri | TEXT UNIQUE | AP activity URI |
-| type | TEXT | Activity type (`Create`, `Follow`, `Like`, `Announce`, etc.) |
-| actor | TEXT | Actor URI who performed the activity |
-| object_uri | TEXT | URI of the target object (references `objects.uri` or remote URI) |
-| target_uri | TEXT | URI of the target (for `Add`/`Remove` to collections, nullable) |
-| addressing | JSONB | `{ to: [...], cc: [...] }` |
-| raw | JSONB | Full activity JSON-LD |
-| published | TIMESTAMPTZ | AP `published` timestamp |
-| created_at | TIMESTAMPTZ | Row creation time |
 | direction | TEXT | `inbound` or `outbound` |
+| published | TIMESTAMPTZ | AP `published` timestamp (extracted for sort performance) |
+| raw | JSONB | Full activity JSON-LD — source of truth |
+| created_at | TIMESTAMPTZ | Row creation time |
 
 **relationships** — Follow and friend state.
 
@@ -180,21 +173,49 @@ Each Lightweb user has an isolated database (`lightweb_<username>`). All tables 
 | published | TIMESTAMPTZ | Sort key |
 | created_at | TIMESTAMPTZ | Row creation time |
 
-The `feed` table is the user's materialized timeline. It is populated during the `persist` step of the inbound pipeline and during the `persist` step of the outbound pipeline. Redis caches recent feed entries for fast reads; on cache miss, the cache is rebuilt from this table.
+The `feed` table is the user's materialized timeline. It is populated during the `persist` step of the inbound pipeline and during the `persist` step of the outbound pipeline.
+
+**groups** — Named collections of actor URIs. Used for audience scoping (AP `to`/`cc` addressing), content filtering, and any future purpose requiring a named set of actors.
+
+| Column | Type | Description |
+|---|---|---|
+| id | UUID PK | Internal identifier |
+| name | TEXT UNIQUE | Group name (e.g., `close-friends`, `work-colleagues`) |
+| uri | TEXT UNIQUE | AP collection URI (e.g., `https://<domain>/users/<username>/groups/<name>`) |
+| created_at | TIMESTAMPTZ | Row creation time |
+
+**group_members** — Membership in groups.
+
+| Column | Type | Description |
+|---|---|---|
+| group_id | UUID FK | References `groups.id` |
+| actor_uri | TEXT | Member actor URI |
+| added_at | TIMESTAMPTZ | When the member was added |
+| PRIMARY KEY | | `(group_id, actor_uri)` |
+
+Groups are resolved during the `resolveRecipients` (outbound) and `resolveAddressing` (inbound) pipeline steps. When a `to` or `cc` field contains a group URI, the pipeline expands it to the member actor URIs for delivery.
 
 ### 4.3 Indexes
 
-At minimum:
+**B-tree indexes** (extracted columns for sort and lookup performance):
 
-- `objects(uri)` — unique, used for lookups by AP URI
-- `objects(attributed_to, published)` — actor's objects by time
-- `objects(in_reply_to)` — thread resolution
-- `objects(type)` — type-filtered queries
-- `activities(uri)` — unique, used for deduplication
-- `activities(actor, published)` — actor's activity history
-- `activities(object_uri)` — find activities referencing an object
+- `objects(uri)` — unique, lookups by AP URI
+- `objects(published DESC)` — chronological ordering
+- `activities(uri)` — unique, deduplication
+- `activities(direction, published DESC)` — inbox/outbox queries
 - `feed(published DESC)` — chronological feed reads
 - `relationships(actor_uri, type)` — relationship lookups
+
+**GIN indexes** (JSONB path queries):
+
+- `objects(raw->'type')` — type-filtered queries
+- `objects(raw->'attributedTo')` — objects by author
+- `objects(raw->'inReplyTo')` — thread resolution
+- `objects(raw->'lwTag')` — internal tag queries (collection membership, filtering)
+- `activities(raw->'actor')` — activities by actor
+- `activities(raw->'object')` — activities referencing an object
+- `activities(raw->'to')` — addressing queries
+- `activities(raw->'cc')` — addressing queries
 
 ### 4.4 Deduplication
 
@@ -357,15 +378,19 @@ The delivery queue is persisted in PostgreSQL (in the sending user's database) t
 
 ## 9. Event Emission
 
-### 9.1 Redis Pub/Sub
+### 9.1 Redis Streams
 
-After an activity is processed (inbound or outbound), the AP Engine emits a typed event to the user's Redis pub/sub channel.
+After an activity is processed (inbound or outbound), the AP Engine appends a typed event to the user's Redis Stream.
 
 ```
-Channel: <username>:events
+Stream: <username>:events
 
+XADD <username>:events * type "activity.received" source "ap" payload "{...}" timestamp "2026-02-21T12:00:00Z"
+```
+
+```json
 {
-  "type": "activity.received",    // or "activity.sent", "follow.received", etc.
+  "type": "activity.received",
   "source": "ap",
   "payload": {
     "activityUri": "...",
@@ -377,9 +402,20 @@ Channel: <username>:events
 }
 ```
 
-The LLM Engine subscribes to the relevant user's channel and matches event handlers defined in user configuration.
+Unlike pub/sub, Streams retain events. Consumers that disconnect (process restart, network blip) catch up by reading from their last-seen ID. No events are lost during subscriber downtime.
 
-### 9.2 Event Types
+### 9.2 Consumer Model
+
+The LLM Engine and WebSocket server each register as consumer groups on the user's event stream:
+
+- **LLM Engine**: consumer group `llm`, reads events to trigger user-configured event handlers
+- **WebSocket server**: consumer group `ws`, reads events to push real-time updates to connected clients
+
+Each consumer group tracks its own read position independently. Events are acknowledged (`XACK`) after successful processing. Unacknowledged events (consumer crashed mid-processing) are reclaimed and redelivered automatically.
+
+Stream retention is capped by `MAXLEN` (configurable, default: 10,000 entries) to bound memory. Old entries are trimmed as new ones arrive. This is not TTL-based — it's a rolling window of recent events.
+
+### 9.3 Event Types
 
 Event types are derived from the activity type and direction. The naming convention is:
 
@@ -406,7 +442,7 @@ The AP Engine exposes a REST and WebSocket API for the client and LLM Engine. Th
 ### 10.1 REST Endpoints
 
 ```
-GET  /api/feed              → Paginated feed (from Redis cache, fallback to Postgres)
+GET  /api/feed              → Paginated feed (from Postgres, with object data resolved via Redis cache)
 GET  /api/feed/:id          → Single activity detail
 POST /api/activity          → Dispatch an action (ActionDispatch shape)
 ```
@@ -436,7 +472,7 @@ The action vocabulary is fixed and defined in the implementation specs for each 
 WS /ws
 ```
 
-Authenticated per user. Pushes real-time events: incoming activities, typing indicators, presence, read receipts. Subscriptions are scoped to the authenticated user's data. The WebSocket server reads from the same Redis pub/sub channels used for event emission.
+Authenticated per user. Pushes real-time events: incoming activities, typing indicators, presence, read receipts. Subscriptions are scoped to the authenticated user's data. The WebSocket server consumes from the user's Redis Stream (as its own consumer group) to push events to connected clients.
 
 ---
 
@@ -481,7 +517,11 @@ All inbound activities are validated for:
 - Reasonable size limits on content fields
 - `actor` field matches the HTTP Signature signer
 
-### 12.5 Rate Limiting
+### 12.5 Redis Key Scoping
+
+All Redis operations are scoped to the authenticated user via a key-prefix wrapper. The AP Engine never issues a raw Redis command — all access goes through a scoped client that prepends `<username>:` to every key. This prevents cross-user data leakage through application bugs. Redis ACLs provide a secondary enforcement layer, restricting each user's key pattern (`<username>:*`).
+
+### 12.6 Rate Limiting
 
 Per-domain and per-actor rate limits on the inbox endpoints. Configurable thresholds. Exceeded limits return 429.
 
@@ -500,30 +540,86 @@ Key management, MLS group lifecycle, and the type manifest are defined in a sepa
 
 ---
 
-## 14. Redis Cache Strategy
+## 14. Redis Strategy
 
-Redis is used exclusively as a rebuildable cache. No data lives only in Redis.
+Redis serves two distinct roles: **caching** (rebuildable from Postgres) and **event delivery** (Streams, covered in section 9). This section covers caching. No cached data lives only in Redis — full Redis loss is recoverable.
 
-### 14.1 Feed Cache
+### 14.1 Memory Management
 
-- Key: `<username>:feed:page:<cursor>`
-- Value: Serialized page of feed entries
-- TTL: Configurable (default: 5 minutes)
-- Invalidation: On new activity (inbound or outbound), delete the user's feed cache keys
-- Rebuild: On cache miss, query the user's `feed` table, populate cache, return
+Redis is configured with a fixed memory limit (`maxmemory`) and the `allkeys-lfu` eviction policy. When memory is full, Redis automatically evicts the least frequently used keys to make room for new ones. This means the cache is self-optimizing — hot data stays, cold data gets evicted based on actual access patterns.
 
-### 14.2 Actor Cache
+TTL is **not** used for memory management. TTL is used only for **correctness** — specifically, for remote data (actor documents) where we have no way to observe changes and must force a periodic re-fetch. Local data cached from Postgres does not need TTL because the pipeline always invalidates on change.
+
+### 14.2 Normalized Cache Architecture
+
+The cache uses a two-layer normalized design to avoid data duplication across feeds.
+
+**Layer 1: Object Cache** — Each object is cached once by URI.
+
+- Key: `<username>:obj:<uri>`
+- Value: Serialized object (full JSON)
+- Invalidation: Deleted when the pipeline processes an `Update` or `Delete` activity targeting this object
+- Rebuild: On miss, query the user's `objects` table by URI
+
+**Layer 2: Feed Indexes** — Feed pages store only lists of object URIs, not full objects.
+
+- Key: `<username>:feed:<feed_id>:page:<cursor>`
+- Value: Ordered array of object URIs (lightweight — ~50 bytes per entry)
+- Invalidation: Deleted when a new activity arrives that affects this feed
+- Rebuild: On miss, query Postgres with the feed's criteria (tags, addressing, time range), populate the index
+
+Cache pages are large (configurable, default: 500 entries). Client-specified page sizes are handled at the application layer by slicing into the cached page. This means fewer cache keys, fewer invalidations, and the client's pagination is decoupled from the cache's pagination.
+
+**Read flow:**
+
+1. Fetch the feed index page → array of object URIs
+2. Slice to the client's requested page size and offset
+3. `MGET` the object URIs from the object cache → full objects in a single round trip
+4. Any cache misses are fetched from Postgres, cached, and returned
+
+This is always exactly 2 Redis round trips regardless of page size.
+
+### 14.3 Feed Index Scoping
+
+Feed indexes are built from Postgres queries that respect the user's configuration. Different feeds are different query criteria cached under different `feed_id` keys:
+
+- `<username>:feed:main:page:0` — the user's primary timeline
+- `<username>:feed:close-friends:page:0` — scoped to a group's actors
+- `<username>:feed:knitting:page:0` — scoped to objects tagged via `lwTag`
+
+The same object appearing in multiple feeds is stored once in the object cache and referenced by URI in each feed index. No duplication.
+
+### 14.4 Federation Collection Cache
+
+Federation-facing collection endpoints (`/users/:username/outbox`, `/followers`, `/following`) use the same two-layer cache. Remote servers paginating through collections hit the feed index cache; the objects they reference are resolved from the object cache. This is where the paged cache provides the most value — remote servers make predictable, repeatable requests that benefit from caching.
+
+### 14.5 Remote Actor Cache
+
+Remote actor documents are cached with a TTL (configurable, default: 24 hours) because changes to remote actors (profile updates, key rotations) cannot be observed through the pipeline. TTL forces periodic re-fetch to ensure correctness.
 
 - Key: `<username>:actor:<uri>`
 - Value: Serialized actor document
-- TTL: Matches the `fetched_at` TTL from the Postgres `actors` table
-- Rebuild: On miss, query Postgres; if stale, fetch from remote
+- TTL: Configurable (default: 24 hours)
+- Rebuild: On miss, check Postgres `actors` table; if stale (`fetched_at` older than TTL), re-fetch from remote
 
-### 14.3 Session and Presence
+This is the only cache type that uses TTL. All other cache types rely on pipeline-driven invalidation and LFU eviction.
+
+### 14.6 Session and Presence
 
 - Key: `<username>:session:<token>` and `<username>:presence`
 - These are ephemeral by nature — loss on Redis restart is acceptable
 - Sessions fall back to re-authentication; presence resets to offline
+- No Postgres backing, no TTL-based correctness concern — these are transient state
+
+### 14.7 Invalidation, Eviction, and TTL
+
+Three distinct mechanisms, three distinct purposes:
+
+| Mechanism | Purpose | When it applies |
+|---|---|---|
+| **Invalidation** | The pipeline *knows* data changed | Object updated/deleted, new feed entry, side effect executed |
+| **Eviction** (LFU) | Redis needs memory | Automatic — least frequently used keys are evicted first |
+| **TTL** | Data *may have* changed and we can't observe it | Remote actor documents only |
 
 ---
 
