@@ -249,7 +249,6 @@ PALETTES=(
 
 ANIMATION_TYPES=("sparkle" "wave" "neon" "typewriter" "glitch" "rainbow")
 
-clear
 printf "\n"
 print_gradient "  ╔══════════════════════════════════════════════════════════════╗" 100 100 255 255 100 255
 printf "\n"
@@ -312,5 +311,5 @@ while true; do
 
   printf "\n"
   idx=$((idx + 1))
-  sleep 5
+  sleep 1
 done
